@@ -1,7 +1,3 @@
-/* TST sub-option indentation for popup.html */
-.tst-suboption {
-  margin-left: 2em;
-}
 .icon-btn#audio-search-btn {
   margin-left: 8px;
   width: 40px;
@@ -20,7 +16,26 @@
 }
 /* Ensure one search type option per row */
 .option-list {
-  margin-bottom: 4px;
+  margin: 0;
+}
+
+.option-list + .option-list {
+  margin-top: 4px;
+}
+.tst-suboption {
+  margin-left: 28px;
+}
+.tst-suboption-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.2;
+}
+.tst-suboption-label input {
+  margin: 0;
+}
+.tst-suboption[hidden] {
+  display: none;
 }
 /* Modernized popup styles */
 .search-bar {
