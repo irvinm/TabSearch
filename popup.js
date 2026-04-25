@@ -231,15 +231,7 @@ document.getElementById('search').addEventListener('keydown', function(e) {
     doSearch();
   } else if (e.key === 'Escape' || e.key === 'Esc') {
     // Send popup-closed message to background before popup closes
-    if (browser && browser.windows && browser.runtime && browser.runtime.sendMessage) {
-      browser.windows.getCurrent().then(win => {
-        notifyPopupClosed();
-      }).catch(err => {
-        notifyPopupClosed();
-      });
-    } else {
-      notifyPopupClosed();
-    }
+    notifyPopupClosed();
     // Let the popup close naturally
   }
 });

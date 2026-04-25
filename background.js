@@ -244,7 +244,6 @@ async function restoreTabsToInitialState(recentActivationToPreserve = null) {
         children[windowId] = [];
         collapsedParents[windowId] = [];
         treesExpandedThisSearch[windowId] = {};
-        originalTSTTreeStructureByWindow[windowId] = treeStructure;
       }
     } catch (e) {
       console.warn('[TabSearch][TST] Failed to restore tree collapsed/expanded state:', e);
@@ -261,6 +260,7 @@ function resetSearchTrackingState() {
   treesExpandedThisSearch = {};
   originalTSTTreeStructureByWindow = {};
   originalTSTTreeSnapshotTaken = false;
+  flattenedStateAppliedThisSearch = false;
   recentTabActivation = null;
 }
 
