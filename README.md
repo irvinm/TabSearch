@@ -8,30 +8,45 @@
   
 ## Features
 
+### Core Search
+
 - Search open tabs by URL, title, or page content (text inside loaded tabs).
 - Hide all non-matching tabs for a focused search experience.
-- Hides and shows tabs across all browser windows for a comprehensive search.
-    - The active tab in each window always remains visible, as it cannot be hidden.
-- Real-time search (filter as you type) or manual search (on submit).
-- Audio tab search: quickly find and focus tabs playing audio.
-- Keyboard shortcut for quick access to the search dialog.
-    - Customizable keyboard shortcut via about:addons → gear → Manage Extension Shortcuts.
-- Option to disable the initial tab hiding action (once the privacy dialog is accepted).
-    - The addon briefly hides and shows the last tab on startup to trigger Firefox's tab-hiding permission prompt. Once permission is granted, you can disable this startup initialization step.
-- Never hides pinned or active tabs.
 - Tab hiding is temporary: all tabs are restored when the search is cleared or the popup is closed.
-- Changing search-affecting options during an active search clears the current search and restores tabs to their pre-search state.
+- Never hides pinned or active tabs.
+
+### Search Behavior
+
+- Supports real-time search (filter as you type) or manual search (on submit).
+- Hides and shows tabs across all browser windows for comprehensive search.
+    - The active tab in each window always remains visible, as it cannot be hidden.
+- If search-affecting options are changed mid-search, the active search is cleared and tabs are restored to their pre-search state.
     - Search-affecting options are: Search URLs, Search tab titles, Search contents of loaded tabs, Real-time search, Support for Tree Style Tab (TST), and Auto-expand trees with matched tabs.
     - "Select all matching tabs on close" and "Disable initial hide action" do not interrupt an in-progress search.
+
+### Keyboard and Productivity
+
 - Keyboard shortcut to open the search dialog.
-- Shows the number of remaining tabs to be hidden/shown on the addon icon
-- Option to multi-select matching tabs after search is complete
+    - Customizable via about:addons -> gear -> Manage Extension Shortcuts.
+- Audio tab search: quickly find and focus tabs playing audio.
+- Option to multi-select matching tabs after search is complete.
     - "Select all matching tabs on close" only applies when the search session ends.
+- Shows the number of remaining tabs to be hidden/shown on the addon icon.
+
+### Tree Style Tab (Optional)
+
+- Optional support for Tree Style Tab (TST).
 - TST search results are visually flattened during a search for faster scanning.
     - Matching tabs are left-aligned and rendered with symmetric horizontal spacing while the search is active.
     - The original tree structure is restored after the search ends.
-- TST can auto-expand parent trees for matched tabs when using the close-time multi-select flow.
+- Optional auto-expand behavior for matched tabs in close-time multi-select flows.
     - The "Auto-expand trees with matched tabs" option is shown only when TST support is enabled.
+
+### Permission Initialization
+
+- Option to disable the initial tab-hiding action (once the privacy dialog is accepted).
+    - The addon briefly hides and shows the last tab on startup to trigger Firefox's tab-hiding permission prompt.
+    - Once permission is granted, you can disable this startup initialization step.
 
 
 ## Search Dialog Behavior
