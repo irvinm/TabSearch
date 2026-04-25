@@ -20,7 +20,10 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "TabSearch@irvinm.addons.mozilla.org"
+      "id": "TabSearch@irvinm.addons.mozilla.org",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
     }
   },
   "commands": {
