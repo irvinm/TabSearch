@@ -111,7 +111,7 @@
 ## Changelog
 
 <details open>
-<summary><strong>v0.6.0 - Popup UX and TST Improvements</strong></summary>
+<summary><strong>v0.6.0 (2026-04-25) - Popup UX and TST Improvements</strong></summary>
 
 - Clarified option reset behavior in the popup.
     - Search-affecting options clear the active search and restore tabs to their pre-search state.
@@ -127,7 +127,7 @@
 </details>
 
 <details>
-<summary><strong>v0.5.5 - Manual Selection and Collapsed Tree Fixes</strong></summary>
+<summary><strong>v0.5.5 (2025-06-18) - Manual Selection and Collapsed Tree Fixes</strong></summary>
 
 - Fixed https://github.com/irvinm/TabSearch/issues/11.
     - (General) Fixed issue where manually selecting a tab from a search would not make that tab the active tab.
@@ -135,14 +135,14 @@
 </details>
 
 <details>
-<summary><strong>v0.5.2 - Tree Tracking and Logging Cleanup</strong></summary>
+<summary><strong>v0.5.2 (2025-06-15) - Tree Tracking and Logging Cleanup</strong></summary>
 
 - Updated logic for tracking TST parents and tree states.
 - Updated the logging to ensure "[TabSearch]" is included for all statements.
 </details>
 
 <details>
-<summary><strong>v0.5.1 - TST Performance Optimizations</strong></summary>
+<summary><strong>v0.5.1 (2025-06-14) - TST Performance Optimizations</strong></summary>
 
 - Performance improvements via reduced actions for TST.
     - (TST) Ensure register with TST only once per session.
@@ -152,7 +152,7 @@
 </details>
 
 <details>
-<summary><strong>v0.5.0 - Initial Tree Style Tab Support</strong></summary>
+<summary><strong>v0.5.0 (2025-06-12) - Initial Tree Style Tab Support</strong></summary>
 
 - Added initial support for Tree Style Tab (TST).
     - Interacts directly with TST to apply a flattening style to matched tabs while searching and to remove any twistys.
@@ -168,7 +168,7 @@
 </details>
 
 <details>
-<summary><strong>v0.4.1 - Multi-Window Close-Time Selection Fix</strong></summary>
+<summary><strong>v0.4.1 (2025-05-31) - Multi-Window Close-Time Selection Fix</strong></summary>
 
 - Fixed [Select all matching tabs on close - Multiple windows not working](https://github.com/irvinm/TabSearch/issues/2).
     - Selecting matching tabs across multiple windows should now work.
@@ -176,13 +176,13 @@
 </details>
 
 <details>
-<summary><strong>v0.4.0 - Close-Time Multi-Select Option</strong></summary>
+<summary><strong>v0.4.0 (2025-05-29) - Close-Time Multi-Select Option</strong></summary>
 
 - Added new option to multi-select matching tabs.
 </details>
 
 <details>
-<summary><strong>v0.3.0 - Search Counter and Popup UX Improvements</strong></summary>
+<summary><strong>v0.3.0 (2025-05-27) - Search Counter and Popup UX Improvements</strong></summary>
 
 - Added support to show the number of tabs still to be processed (hidden or shown) in the addon icon counter.
 - Reduced the amount of whitespace near the borders of the search popup.
@@ -191,7 +191,7 @@
 </details>
 
 <details>
-<summary><strong>v0.2.0 - Audio Tab Search Experience</strong></summary>
+<summary><strong>v0.2.0 (2025-05-25) - Audio Tab Search Experience</strong></summary>
 
 - Updated styling for the search dialog.
 - Added support for searching tabs playing audio.
@@ -201,7 +201,7 @@
 </details>
 
 <details>
-<summary><strong>v0.1.0 - Initial Release</strong></summary>
+<summary><strong>v0.1.0 (2025-05-22) - Initial Release</strong></summary>
 
 - Initial release support for:
     - Searching tab URL.
