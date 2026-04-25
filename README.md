@@ -17,12 +17,48 @@
 - Keyboard shortcut for quick access to the search dialog.
     - Customizable keyboard shortcut via about:addons → gear → Manage Extension Shortcuts.
 - Option to disable the initial tab hiding action (once the privacy dialog is accepted).
-    - The addon hides and shows the last tab on startup to trigger Firefox’s permission prompt without interfering with the search dialog. Once permission is granted, you can disable this behavior. See the limitations section for more information and links.
+    - The addon briefly hides and shows the last tab on startup to trigger Firefox's tab-hiding permission prompt. Once permission is granted, you can disable this startup initialization step.
 - Never hides pinned or active tabs.
 - Tab hiding is temporary: all tabs are restored when the search is cleared or the popup is closed.
+- Changing search-affecting options during an active search clears the current search and restores tabs to their pre-search state.
+    - Search-affecting options are: Search URLs, Search tab titles, Search contents of loaded tabs, Real-time search, Support for Tree Style Tab (TST), and Auto-expand trees with matched tabs.
+    - "Select all matching tabs on close" and "Disable initial hide action" do not interrupt an in-progress search.
 - Keyboard shortcut to open the search dialog.
 - Shows the number of remaining tabs to be hidden/shown on the addon icon
 - Option to multi-select matching tabs after search is complete
+    - "Select all matching tabs on close" only applies when the search session ends.
+- TST search results are visually flattened during a search for faster scanning.
+    - Matching tabs are left-aligned and rendered with symmetric horizontal spacing while the search is active.
+    - The original tree structure is restored after the search ends.
+- TST can auto-expand parent trees for matched tabs when using the close-time multi-select flow.
+    - The "Auto-expand trees with matched tabs" option is shown only when TST support is enabled.
+
+
+## Search Dialog Behavior
+
+- Opening the popup starts a search session scoped to the current state of visible/hidden tabs.
+- While searching, changing some options will clear the search input and restore tabs to their pre-search state so results stay consistent.
+
+### Options That Reset an Active Search
+
+- Search URLs
+- Search tab titles
+- Search contents of loaded tabs
+- Real-time search
+- Support for Tree Style Tab (TST)
+- Auto-expand trees with matched tabs
+
+### Options That Do Not Reset an Active Search
+
+- Select all matching tabs on close
+- Disable initial hide action
+
+### Notes
+
+- "Select all matching tabs on close" applies when the search session ends; it does not change in-progress filtering.
+- "Disable initial hide action" only affects the startup permission initialization step; it does not change matching/filtering during a search.
+- "Auto-expand trees with matched tabs" is only shown when TST support is enabled.
+- Clicking either blue info button cancels any active search, restores tab visibility/state, opens the help page in a new active tab, and closes the popup.
 
 
 ## Limitations
@@ -59,65 +95,105 @@
 
 ## Changelog
 
-<details id="History"><summary>History</summary>
+<details open>
+<summary><strong>v0.6.0 - Popup UX and TST Improvements</strong></summary>
 
-### v0.5.5
+- Clarified option reset behavior in the popup.
+    - Search-affecting options clear the active search and restore tabs to their pre-search state.
+    - Both TST options ("Support for Tree Style Tab" and "Auto-expand trees with matched tabs") now reset an active search to ensure TST state is fully restored.
+    - "Select all matching tabs on close" and "Disable initial hide action" do not reset an active search.
+- Updated the TST search presentation.
+    - Flattened search results now keep a consistent left and right gutter while searching.
+    - Added defensive TST CSS so custom tab margins are less likely to break the flattened search layout.
+- Updated the popup relationship between TST options.
+    - The "Auto-expand trees with matched tabs" option is now progressively disclosed and only shown when TST support is enabled.
+- Updated info-button behavior in the popup.
+    - Opening privacy/content help now first resets any active search, then opens the help page in an active tab and closes the popup.
+</details>
+
+<details>
+<summary><strong>v0.5.5 - Manual Selection and Collapsed Tree Fixes</strong></summary>
+
 - Fixed https://github.com/irvinm/TabSearch/issues/11.
     - (General) Fixed issue where manually selecting a tab from a search would not make that tab the active tab.
     - (TST) Fixed issue where manually selecting a tab that was in a collapsed tree would be selected, but when the tree was restored (collapsed), the parent ends up becoming the active tab.
-      
-### v0.5.2
-- Updated logic for tracking TST parents and tree states
-- Updated the logging to ensure "[TabSearch]" is included for all statements
+</details>
 
-### v0.5.1
-- Performance improvements via reduced actions for TST
-    - (TST) Ensure register with TST only once per session
-    - (TST) Only "expand all trees" once per search per window
-    - (TST) Only apply "flatted" style once per search
-    - (TST) Refactor tree restoration process to only call parents, not every tab
+<details>
+<summary><strong>v0.5.2 - Tree Tracking and Logging Cleanup</strong></summary>
 
-### v0.5.0
-- Added initial support for Tree Style Tab (TST)
-    - Interacts directly with TST to apply a flattening style to matched tabs while searching and to remove any twistys
-    - Expands all trees during the search to ensure visibility
-    - Restores the original state of tress (expanded/collapsed) after the search is complete
-- If options of the search are changed mid-search, the search is cleared and restarted
-    - Want consistent results and not have to worry if changing an option mid-search is logical or not
-- Disabled being able to use "tab" to switch between UI elements
-    - There is a Firefox limitation that popup.html can be destroyed too fast to generate an "unload" event to be processed
-    - Monitoring for "focusout" works well, but also included keyboard transitions to other UI elements
-- Added new option for TST to "auto-expand" trees if the option to "Select all matching tabs on close" is also enabled
-    - This would ensure you can visually find all the highlighted tabs even if they were buried in collapsed trees
+- Updated logic for tracking TST parents and tree states.
+- Updated the logging to ensure "[TabSearch]" is included for all statements.
+</details>
 
-### v0.4.1
-  - Fixed [Select all matching tabs on close - Multiple windows not working](https://github.com/irvinm/TabSearch/issues/2)
-    - Selecting matching tabs across multiple windows should now work
-    - There is a Firefox limitation that dragging tabs has to be done PER window
+<details>
+<summary><strong>v0.5.1 - TST Performance Optimizations</strong></summary>
 
-### v0.4.0
-- Added new option to multi-select matching tabs
+- Performance improvements via reduced actions for TST.
+    - (TST) Ensure register with TST only once per session.
+    - (TST) Only "expand all trees" once per search per window.
+    - (TST) Only apply "flattened" style once per search.
+    - (TST) Refactor tree restoration process to only call parents, not every tab.
+</details>
 
-### v0.3.0
-- Added support to show the number of tabs still to be processed (hidden or shown) to the addon icon counter
-- Reduced the amount of white-space near the borders of the search popup
-- Disabled the search button when "real-time searches" are enabled
-- Cleaned up some logic around options to avoid searches from being cleared mid-search
+<details>
+<summary><strong>v0.5.0 - Initial Tree Style Tab Support</strong></summary>
 
-### v0.2.0
+- Added initial support for Tree Style Tab (TST).
+    - Interacts directly with TST to apply a flattening style to matched tabs while searching and to remove any twistys.
+    - Expands all trees during the search to ensure visibility.
+    - Restores the original state of trees (expanded/collapsed) after the search is complete.
+- If search-affecting options are changed mid-search, the search is cleared and restarted.
+    - This keeps behavior consistent when search options are changed during an active session.
+- Disabled being able to use "tab" to switch between UI elements.
+    - There is a Firefox limitation that popup.html can be destroyed too fast to generate an "unload" event to be processed.
+    - Monitoring for "focusout" works well, but also included keyboard transitions to other UI elements.
+- Added new option for TST to "auto-expand" trees if the option to "Select all matching tabs on close" is also enabled.
+    - This ensures you can visually find all highlighted tabs even if they were buried in collapsed trees.
+</details>
+
+<details>
+<summary><strong>v0.4.1 - Multi-Window Close-Time Selection Fix</strong></summary>
+
+- Fixed [Select all matching tabs on close - Multiple windows not working](https://github.com/irvinm/TabSearch/issues/2).
+    - Selecting matching tabs across multiple windows should now work.
+    - There is a Firefox limitation that dragging tabs has to be done per window.
+</details>
+
+<details>
+<summary><strong>v0.4.0 - Close-Time Multi-Select Option</strong></summary>
+
+- Added new option to multi-select matching tabs.
+</details>
+
+<details>
+<summary><strong>v0.3.0 - Search Counter and Popup UX Improvements</strong></summary>
+
+- Added support to show the number of tabs still to be processed (hidden or shown) in the addon icon counter.
+- Reduced the amount of whitespace near the borders of the search popup.
+- Disabled the search button when "real-time searches" are enabled.
+- Cleaned up some logic around options to avoid searches from being cleared mid-search.
+</details>
+
+<details>
+<summary><strong>v0.2.0 - Audio Tab Search Experience</strong></summary>
+
 - Updated styling for the search dialog.
-- Added support for searching tabs playing audio:
+- Added support for searching tabs playing audio.
     - 0 matches: Shows a custom dialog indicating no tabs were found.
     - 1 match: Switches directly to that tab.
     - 2+ matches: Hides all non-audio tabs.
+</details>
 
-### v0.1.0
+<details>
+<summary><strong>v0.1.0 - Initial Release</strong></summary>
+
 - Initial release support for:
-    - Searching tab URL
-    - Searching tab title
-    - Searching tab content (text inside loaded tabs)
-    - Option to initially hide a tab in order to get Firefox to ask for explicit permission
-    - Option for real-time search (filter as you type) or manual search (on submit)
-    - Keyboard short-cut support to bring up search dialog
-    - Support to change key assignment via standard about:addons → gear → Manage Extension Shortcuts
+    - Searching tab URL.
+    - Searching tab title.
+    - Searching tab content (text inside loaded tabs).
+    - Option to initially hide a tab in order to get Firefox to ask for explicit permission.
+    - Option for real-time search (filter as you type) or manual search (on submit).
+    - Keyboard shortcut support to bring up search dialog.
+    - Support to change key assignment via standard about:addons -> gear -> Manage Extension Shortcuts.
 </details>

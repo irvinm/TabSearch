@@ -24,11 +24,19 @@ const TST_REGISTER_MESSAGE = {
   // See: https://github.com/piroor/treestyletab/wiki/API-for-other-addons#register-self
   // Remove all indentation and hide the twisty icon in flattened state
   style: `
+    .tab.flattened:not(.pinned) {
+      margin-left: 0 !important;
+      margin-right: 0 !important;
+    }
     .tab.flattened:not(.pinned) tab-twisty::before {
       display: none !important;
     }
     .tab.flattened:not(.pinned) tab-item-substance {
       margin-left: var(--shift-tabs-for-scrollbar-distance) !important;
+      margin-right: var(--shift-tabs-for-scrollbar-distance) !important;
+      width: calc(100% - var(--shift-tabs-for-scrollbar-distance) - var(--shift-tabs-for-scrollbar-distance)) !important;
+      max-width: calc(100% - var(--shift-tabs-for-scrollbar-distance) - var(--shift-tabs-for-scrollbar-distance)) !important;
+      box-sizing: border-box !important;
     }
   `,
 }
@@ -132,6 +140,130 @@ function startProgressIndicator(getCountFn) {
   }, 500); // Update 2 times a second
 }
 
+async function restoreTabsToInitialState(recentActivationToPreserve = null) {
+  const allTabs = await browser.tabs.query({});
+
+  // Use flattenedStateAppliedThisSearch rather than the current tstSupport storage
+  // value, because the option may already have been toggled off before this runs.
+  if (flattenedStateAppliedThisSearch) {
+    const allTabIds = allTabs.map(tab => tab.id);
+    removeFlattenedState(allTabIds);
+  }
+
+  try {
+    const hiddenTabIds = allTabs.filter(tab => tab.hidden).map(tab => tab.id);
+    if (hiddenTabIds.length > 0) {
+      updateBadge(hiddenTabIds.length);
+      startProgressIndicator(async () => {
+        const tabsNow = await browser.tabs.query({});
+        return tabsNow.filter(tab => tab.hidden).length;
+      });
+      console.log(`[TabSearch] Showing ${hiddenTabIds.length} hidden tabs:`, hiddenTabIds);
+      await browser.tabs.show(hiddenTabIds);
+    } else {
+      updateBadge(0);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
+    }
+  } catch (e) {
+    updateBadge(0);
+    if (progressInterval) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+  }
+
+  if (originalTSTTreeSnapshotTaken && originalTSTTreeStructureByWindow) {
+    try {
+      const activeTabsByWindow = {};
+      const allWindows = await browser.windows.getAll({ populate: false });
+      for (const window of allWindows) {
+        const tabsInWindow = await browser.tabs.query({ windowId: window.id, active: true });
+        if (tabsInWindow.length > 0) {
+          activeTabsByWindow[window.id] = tabsInWindow[0].id;
+        }
+      }
+
+      for (const [windowId, treeStructure] of Object.entries(originalTSTTreeStructureByWindow)) {
+        let tabIdToPreserve;
+
+        if (recentActivationToPreserve && recentActivationToPreserve.windowId === Number(windowId)) {
+          tabIdToPreserve = recentActivationToPreserve.tabId;
+          console.log(`[TabSearch][TST] Window ${windowId}: Will preserve manually selected tab ${tabIdToPreserve}`);
+        } else {
+          tabIdToPreserve = activeTabsByWindow[windowId];
+          if (tabIdToPreserve) {
+            console.log(`[TabSearch][TST] Window ${windowId}: Will preserve currently active tab ${tabIdToPreserve}`);
+          }
+        }
+
+        let parentsToKeepExpanded = new Set();
+
+        if (tabIdToPreserve && collapsedParents[windowId] && collapsedParents[windowId].length > 0) {
+          try {
+            const currentTree = await browser.runtime.sendMessage(TST_ID, {
+              type: 'get-light-tree',
+              tabs: '*',
+              window: Number(windowId)
+            });
+
+            if (currentTree && Array.isArray(currentTree)) {
+              const tabIdToNode = {};
+              currentTree.forEach(node => { tabIdToNode[node.id] = node; });
+              const tabNode = tabIdToNode[tabIdToPreserve];
+
+              if (tabNode && tabNode.ancestorTabIds && tabNode.ancestorTabIds.length > 0) {
+                const collapsedParentIds = collapsedParents[windowId].map(parent => parent.id);
+
+                for (const ancestorId of tabNode.ancestorTabIds) {
+                  if (collapsedParentIds.includes(ancestorId)) {
+                    parentsToKeepExpanded.add(ancestorId);
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[TabSearch][TST] Failed to get current tree structure for tab visibility check:', e);
+          }
+        }
+
+        const parentsToCollapse = collapsedParents[windowId].filter(parent => !parentsToKeepExpanded.has(parent.id));
+
+        if (parentsToCollapse.length > 0) {
+          await browser.runtime.sendMessage(TST_ID, {
+            type: 'collapse-tree',
+            window: Number(windowId),
+            tabs: parentsToCollapse,
+            recursively: false
+          });
+        }
+
+        parents[windowId] = [];
+        children[windowId] = [];
+        collapsedParents[windowId] = [];
+        treesExpandedThisSearch[windowId] = {};
+      }
+    } catch (e) {
+      console.warn('[TabSearch][TST] Failed to restore tree collapsed/expanded state:', e);
+    }
+  }
+}
+
+function resetSearchTrackingState() {
+  lastHiddenTabIds = [];
+  searchInProgress = false;
+  parents = {};
+  children = {};
+  collapsedParents = {};
+  treesExpandedThisSearch = {};
+  originalTSTTreeStructureByWindow = {};
+  originalTSTTreeSnapshotTaken = false;
+  flattenedStateAppliedThisSearch = false;
+  recentTabActivation = null;
+}
+
 browser.runtime.onMessage.addListener(async (msg, sender) => {
 
   // Check if TST support is enabled
@@ -141,6 +273,13 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
   if (msg.action === 'clear-matched-tabs') {
     lastMatchedTabIds = [];
+    return;
+  }
+
+  if (msg.action === 'reset-search-state') {
+    await restoreTabsToInitialState();
+    lastMatchedTabIds = [];
+    resetSearchTrackingState();
     return;
   }
 
@@ -359,145 +498,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       console.log('[TabSearch] No recent tab activation, user likely clicked away');
     }
     
-    const allTabs = await browser.tabs.query({});
-
-    // If TST support is enabled, remove flattened state from all tabs in one call
-    if (tstEnabled) {
-      const allTabIds = allTabs.map(tab => tab.id);
-      removeFlattenedState(allTabIds);
-    }
-
-    // Always try to show all hidden tabs, even if lastHiddenTabIds is empty
-    try {
-      const hiddenTabIds = allTabs.filter(tab => tab.hidden).map(tab => tab.id);
-      if (hiddenTabIds.length > 0) {
-        // Start progress indicator for unhiding
-        updateBadge(hiddenTabIds.length);
-        startProgressIndicator(async () => {
-          const tabsNow = await browser.tabs.query({});
-          return tabsNow.filter(tab => tab.hidden).length;
-        });
-        console.log(`[TabSearch] Showing ${hiddenTabIds.length} hidden tabs:`, hiddenTabIds);
-        await browser.tabs.show(hiddenTabIds);
-      } else {
-        updateBadge(0);
-        if (progressInterval) {
-          clearInterval(progressInterval);
-          progressInterval = null;
-        }
-      }
-    } catch (e) {
-      updateBadge(0);
-      if (progressInterval) {
-        clearInterval(progressInterval);
-        progressInterval = null;
-      }
-    }    // Now restore the collapsed/expanded state of trees
-    if (tstEnabled && originalTSTTreeSnapshotTaken && originalTSTTreeStructureByWindow) {
-      try {
-        // Determine which tab should be kept visible
-        let tabToKeepVisible = null;
-        
-        if (wasRecentActivation) {
-          // User clicked on a specific tab - keep that tab visible
-          tabToKeepVisible = recentTabActivation.tabId;
-          console.log(`[TabSearch][TST] Will preserve visibility for manually selected tab: ${tabToKeepVisible}`);
-        } else {
-          // User clicked away - use currently active tab in each window (existing behavior)
-          console.log('[TabSearch][TST] Will preserve visibility for currently active tabs');
-        }
-
-        // First, identify which tab is currently active in each window (for click-away scenario)
-        const activeTabsByWindow = {};
-        const allWindows = await browser.windows.getAll({ populate: false });
-        for (const window of allWindows) {
-          const tabsInWindow = await browser.tabs.query({ windowId: window.id, active: true });
-          if (tabsInWindow.length > 0) {
-            activeTabsByWindow[window.id] = tabsInWindow[0].id;
-          }
-        }        for (const [windowId, treeStructure] of Object.entries(originalTSTTreeStructureByWindow)) {
-          // Determine which tab to preserve visibility for in this window
-          let tabIdToPreserve;
-          
-          if (wasRecentActivation && recentTabActivation.windowId === Number(windowId)) {
-            // This is the window where the user manually selected a tab
-            tabIdToPreserve = recentTabActivation.tabId;
-            console.log(`[TabSearch][TST] Window ${windowId}: Will preserve manually selected tab ${tabIdToPreserve}`);
-          } else {
-            // For other windows, preserve the currently active tab
-            tabIdToPreserve = activeTabsByWindow[windowId];
-            if (tabIdToPreserve) {
-              console.log(`[TabSearch][TST] Window ${windowId}: Will preserve currently active tab ${tabIdToPreserve}`);
-            }
-          }
-          
-          let parentsToKeepExpanded = new Set();
-          
-          // If there's a tab to preserve in this window, check if it would be hidden by collapsing trees
-          if (tabIdToPreserve && collapsedParents[windowId] && collapsedParents[windowId].length > 0) {
-            // Get current tree structure to find the tab's ancestors
-            try {
-              const currentTree = await browser.runtime.sendMessage(TST_ID, {
-                type: 'get-light-tree',
-                tabs: '*',
-                window: Number(windowId)
-              });
-                if (currentTree && Array.isArray(currentTree)) {
-                const tabIdToNode = {};
-                currentTree.forEach(node => { tabIdToNode[node.id] = node; });
-                const tabNode = tabIdToNode[tabIdToPreserve];
-                
-                console.log(`[TabSearch][TST] Window ${windowId}: Looking for tab ${tabIdToPreserve} in tree`);
-                console.log(`[TabSearch][TST] Window ${windowId}: Tab node found:`, tabNode ? `Yes (ancestors: ${tabNode.ancestorTabIds})` : 'No');
-                
-                if (tabNode && tabNode.ancestorTabIds && tabNode.ancestorTabIds.length > 0) {
-                  // Check if any of the tab's ancestors are in the list of parents to collapse
-                  const collapsedParentIds = collapsedParents[windowId].map(parent => parent.id);
-                  console.log(`[TabSearch][TST] Window ${windowId}: Originally collapsed parent IDs:`, collapsedParentIds);
-                  console.log(`[TabSearch][TST] Window ${windowId}: Tab ${tabIdToPreserve} ancestor IDs:`, tabNode.ancestorTabIds);
-                  
-                  for (const ancestorId of tabNode.ancestorTabIds) {
-                    if (collapsedParentIds.includes(ancestorId)) {
-                      parentsToKeepExpanded.add(ancestorId);
-                      console.log(`[TabSearch][TST] Window ${windowId}: Keeping parent ${ancestorId} expanded to preserve visibility of tab ${tabIdToPreserve}`);
-                    }
-                  }
-                } else {
-                  console.log(`[TabSearch][TST] Window ${windowId}: Tab ${tabIdToPreserve} has no ancestors or is not in a tree`);
-                }
-              }
-            } catch (e) {
-              console.warn('[TabSearch][TST] Failed to get current tree structure for tab visibility check:', e);
-            }
-          }
-            // Filter out parents that should be kept expanded to preserve tab visibility
-          const parentsToCollapse = collapsedParents[windowId].filter(parent => !parentsToKeepExpanded.has(parent.id));
-          
-          if (parentsToCollapse.length > 0) {
-            console.log(`[TabSearch][TST] Window ${windowId}: Collapsing ${parentsToCollapse.length} trees (keeping ${parentsToKeepExpanded.size} expanded for tab ${tabIdToPreserve})`);
-            console.log(`[TabSearch][TST] Window ${windowId}: Parents to collapse:`, parentsToCollapse.map(p => p.id));
-            console.log(`[TabSearch][TST] Window ${windowId}: Parents to keep expanded:`, Array.from(parentsToKeepExpanded));
-            await browser.runtime.sendMessage(TST_ID, {
-              type: 'collapse-tree',
-              window: Number(windowId),
-              tabs: parentsToCollapse,
-              recursively: false
-            });
-          } else {
-            console.log(`[TabSearch][TST] Window ${windowId}: No trees to collapse (all ${collapsedParents[windowId].length} kept expanded for tab ${tabIdToPreserve})`);
-          }
-          
-          // Clear the tracking arrays for this window
-          parents[windowId] = [];
-          children[windowId] = [];
-          collapsedParents[windowId] = [];
-          treesExpandedThisSearch[windowId] = {};
-          originalTSTTreeStructureByWindow[windowId] = treeStructure;
-        }
-      } catch (e) {
-        console.warn('[TabSearch][TST] Failed to restore tree collapsed/expanded state:', e);
-      }
-    }
+    await restoreTabsToInitialState(wasRecentActivation ? recentTabActivation : null);
 
     // Select all matching tabs if option is enabled
     const items = await browser.storage.local.get(["selectMatchingTabs", "tstSupport", "tstAutoExpand"]);
@@ -574,15 +575,7 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       // After handling, clear lastMatchedTabIds so it doesn't persist for next popup
       lastMatchedTabIds = [];
     }    // Reset all stateful objects to avoid stale data
-    lastHiddenTabIds = [];
-    searchInProgress = false;
-    parents = {};
-    children = {};
-    collapsedParents = {};
-    treesExpandedThisSearch = {};
-    originalTSTTreeStructureByWindow = {};
-    originalTSTTreeSnapshotTaken = false;
-    recentTabActivation = null;  // Clear the recent activation tracking
+    resetSearchTrackingState();
   }
 });
 
