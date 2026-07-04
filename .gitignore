@@ -1,3 +1,9 @@
 *.zip
 *.xpi
 *.txt
+node_modules/
+web-ext-artifacts/
+.vscode/
+.idea/
+.DS_Store
+*.log
