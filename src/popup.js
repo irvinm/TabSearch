@@ -207,7 +207,24 @@ function saveOptions(options) {
 
 function loadOptions(callback) {
   if (browser && browser.storage && browser.storage.local) {
-    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand"]).then(callback);
+    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen"]).then(callback);
+  }
+}
+
+function updateRealtimeSearchState() {
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
+  const realtimeSearchInput = document.getElementById('realtime-search');
+  
+  if (realtimeSearchInput) {
+    realtimeSearchInput.disabled = virtualDashboard;
+    const label = realtimeSearchInput.closest('label');
+    if (label) {
+      if (virtualDashboard) {
+        label.classList.add('disabled-label');
+      } else {
+        label.classList.remove('disabled-label');
+      }
+    }
   }
 }
 
@@ -218,9 +235,14 @@ function updateSearchButtonState() {
   const titlesChecked = document.getElementById('search-titles').checked;
   const contentsChecked = document.getElementById('search-contents').checked;
   const realtimeChecked = document.getElementById('realtime-search').checked;
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
   const enableSearch = urlsChecked || titlesChecked || contentsChecked;
-  // Only exception: when real-time search is enabled, disable the search button
-  searchBtn.disabled = !!realtimeChecked;
+  
+  // Disable/grey out real-time search option in virtual dashboard mode
+  updateRealtimeSearchState();
+
+  // Enable search button if virtual dashboard is active, otherwise disable it when real-time search is active
+  searchBtn.disabled = !virtualDashboard && !!realtimeChecked;
   if (searchInput) {
     searchInput.disabled = !enableSearch;
   }
@@ -279,6 +301,7 @@ window.addEventListener('DOMContentLoaded', function() {
     let disableEmptyTabChecked = allUndefined ? false : (typeof items.disableEmptyTab === 'undefined' ? false : !!items.disableEmptyTab);
     let tstSupportChecked = allUndefined ? false : (typeof items.tstSupport === 'undefined' ? false : !!items.tstSupport);
     let tstAutoExpandChecked = allUndefined ? false : (typeof items.tstAutoExpand === 'undefined' ? false : !!items.tstAutoExpand);
+    let virtualDashboardChecked = allUndefined ? false : (typeof items.virtualDashboard === 'undefined' ? false : !!items.virtualDashboard);
 
     document.getElementById('search-urls').checked = urlsChecked;
     document.getElementById('search-titles').checked = titlesChecked;
@@ -293,6 +316,7 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('disable-empty-tab').checked = disableEmptyTabChecked;
     document.getElementById('tst-support').checked = tstSupportChecked;
     document.getElementById('tst-auto-expand').checked = tstAutoExpandChecked;
+    document.getElementById('virtual-dashboard').checked = virtualDashboardChecked;
 
     const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
     const tstAutoExpandInput = document.getElementById('tst-auto-expand');
@@ -306,7 +330,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // If all were undefined, save the defaults so future loads are correct
     if (allUndefined) {
-      saveOptions({ searchUrls: true, searchTitles: true, searchContents: true, realtimeSearch: true, fuzzySearch: false, fuzzyThreshold: 0.35, disableEmptyTab: false, selectMatchingTabs: false, tstSupport: false, tstAutoExpand: false });
+      saveOptions({ searchUrls: true, searchTitles: true, searchContents: true, realtimeSearch: true, fuzzySearch: false, fuzzyThreshold: 0.35, disableEmptyTab: false, selectMatchingTabs: false, tstSupport: false, tstAutoExpand: false, virtualDashboard: false, keepDashboardOpen: false });
     }
     document.getElementById('tst-support').addEventListener('change', function() {
       const checked = this.checked;
@@ -390,6 +414,10 @@ window.addEventListener('DOMContentLoaded', function() {
     // Real-time search handler (must be inside this block so searchInput is defined)
     let debounceTimer;
     searchInput.addEventListener('input', function() {
+      // If virtual dashboard is checked, ignore real-time trigger to prevent keystroke loss
+      if (document.getElementById('virtual-dashboard').checked) {
+        return;
+      }
       if (document.getElementById('realtime-search').checked) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -411,7 +439,8 @@ window.addEventListener('DOMContentLoaded', function() {
       disableEmptyTab: document.getElementById('disable-empty-tab').checked,
       selectMatchingTabs: document.getElementById('select-matching-tabs').checked,
       tstSupport: document.getElementById('tst-support').checked,
-      tstAutoExpand: document.getElementById('tst-auto-expand').checked
+      tstAutoExpand: document.getElementById('tst-auto-expand').checked,
+      virtualDashboard: document.getElementById('virtual-dashboard').checked
     });
   }
 
@@ -471,6 +500,12 @@ window.addEventListener('DOMContentLoaded', function() {
   document.getElementById('disable-empty-tab').addEventListener('change', function() {
     saveAllOptions();
     checkTabHidePermission(false);
+  });
+
+  document.getElementById('virtual-dashboard').addEventListener('change', function() {
+    saveAllOptions();
+    updateSearchButtonState();
+    handleOptionChange();
   });
 
   // Check tabHide permission status
@@ -556,7 +591,16 @@ function doSearch() {
   const realtimeSearch = document.getElementById('realtime-search').checked;
   const fuzzySearch = document.getElementById('fuzzy-search').checked;
   const fuzzyThreshold = parseFloat(document.getElementById('fuzzy-threshold').value);
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
+
   if (!searchUrls && !searchTitles && !searchContents) return;
+
+  if (virtualDashboard) {
+    browser.runtime.sendMessage({ action: 'open-dashboard', query: term });
+    window.close();
+    return;
+  }
+
   if (term || realtimeSearch) {
     browser.runtime.sendMessage({ action: 'search-tabs', term, searchUrls, searchTitles, searchContents, fuzzySearch, fuzzyThreshold });
     // Only close popup if not real-time

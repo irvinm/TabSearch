@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tab Search Results Dashboard</title>
+  <link rel="stylesheet" href="common.css">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <div class="dashboard-title-row">
+        <h1 class="dashboard-title">Tab Search Results</h1>
+      </div>
+      <div class="dashboard-search-bar">
+        <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
+      </div>
+      <div class="dashboard-options-row">
+        <label>
+          <input type="checkbox" id="keep-dashboard-open">
+          Keep dashboard open after selecting a tab
+        </label>
+        <div class="dashboard-actions-group">
+          <button type="button" id="collapse-all-btn" class="action-btn">Collapse All</button>
+          <button type="button" id="expand-all-btn" class="action-btn">Expand All</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="results-container">
+      <!-- Grouped window sections will be dynamically rendered here -->
+    </div>
+  </div>
+  <script src="fuse.basic.min.js"></script>
+  <script src="search-results.js"></script>
+</body>
+</html>
