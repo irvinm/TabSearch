@@ -1,9 +1,10 @@
 {
   "name": "tab_search",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "private": true,
   "description": "Search tabs and hide non-matching ones.",
   "scripts": {
-    "build": "npx web-ext build"
+    "build": "npx web-ext build --source-dir src --overwrite-dest",
+    "test": "node --test"
   }
 }
