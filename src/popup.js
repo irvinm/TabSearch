@@ -211,20 +211,50 @@ function loadOptions(callback) {
   }
 }
 
-function updateRealtimeSearchState() {
+function updateDisabledOptionsState() {
   const virtualDashboard = document.getElementById('virtual-dashboard').checked;
-  const realtimeSearchInput = document.getElementById('realtime-search');
+  const tstSupportInput = document.getElementById('tst-support');
+  const tstSupportChecked = tstSupportInput ? tstSupportInput.checked : false;
   
-  if (realtimeSearchInput) {
-    realtimeSearchInput.disabled = virtualDashboard;
-    const label = realtimeSearchInput.closest('label');
+  // List of options to disable when virtual dashboard is active
+  const optionIds = [
+    'realtime-search',
+    'select-matching-tabs',
+    'tst-support'
+  ];
+  
+  optionIds.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.disabled = virtualDashboard;
+      const label = input.closest('label');
+      if (label) {
+        if (virtualDashboard) {
+          label.classList.add('disabled-label');
+        } else {
+          label.classList.remove('disabled-label');
+        }
+      }
+    }
+  });
+
+  // Handle TST suboption separately
+  const tstAutoExpandInput = document.getElementById('tst-auto-expand');
+  const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
+  if (tstAutoExpandInput) {
+    const shouldDisableTSTSub = virtualDashboard || !tstSupportChecked;
+    tstAutoExpandInput.disabled = shouldDisableTSTSub;
+    const label = tstAutoExpandInput.closest('label');
     if (label) {
-      if (virtualDashboard) {
+      if (shouldDisableTSTSub) {
         label.classList.add('disabled-label');
       } else {
         label.classList.remove('disabled-label');
       }
     }
+  }
+  if (tstAutoExpandRow) {
+    tstAutoExpandRow.hidden = virtualDashboard || !tstSupportChecked;
   }
 }
 
@@ -238,8 +268,8 @@ function updateSearchButtonState() {
   const virtualDashboard = document.getElementById('virtual-dashboard').checked;
   const enableSearch = urlsChecked || titlesChecked || contentsChecked;
   
-  // Disable/grey out real-time search option in virtual dashboard mode
-  updateRealtimeSearchState();
+  // Disable/grey out irrelevant options in virtual dashboard mode
+  updateDisabledOptionsState();
 
   // Enable search button if virtual dashboard is active, otherwise disable it when real-time search is active
   searchBtn.disabled = !virtualDashboard && !!realtimeChecked;
@@ -576,6 +606,70 @@ window.addEventListener('DOMContentLoaded', function() {
           grantBtn.textContent = 'Enable Tab Hiding';
           if (guidance) guidance.hidden = true;
         });
+    });
+  }
+
+  // Listen for storage changes to sync preferences in real-time
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.onChanged) {
+    browser.storage.onChanged.addListener((changes) => {
+      let optionsChanged = false;
+      const keys = [
+        'searchUrls', 'searchTitles', 'searchContents', 'realtimeSearch',
+        'fuzzySearch', 'fuzzyThreshold', 'disableEmptyTab', 'selectMatchingTabs',
+        'tstSupport', 'tstAutoExpand', 'virtualDashboard'
+      ];
+      for (const key of keys) {
+        if (changes[key]) {
+          optionsChanged = true;
+          break;
+        }
+      }
+      if (optionsChanged) {
+        browser.storage.local.get(keys).then((items) => {
+          if (items.searchUrls !== undefined) {
+            document.getElementById('search-urls').checked = !!items.searchUrls;
+          }
+          if (items.searchTitles !== undefined) {
+            document.getElementById('search-titles').checked = !!items.searchTitles;
+          }
+          if (items.searchContents !== undefined) {
+            document.getElementById('search-contents').checked = !!items.searchContents;
+          }
+          if (items.realtimeSearch !== undefined) {
+            document.getElementById('realtime-search').checked = !!items.realtimeSearch;
+          }
+          if (items.fuzzySearch !== undefined) {
+            document.getElementById('fuzzy-search').checked = !!items.fuzzySearch;
+            document.getElementById('threshold-row').hidden = !items.fuzzySearch;
+          }
+          if (items.fuzzyThreshold !== undefined) {
+            document.getElementById('fuzzy-threshold').value = items.fuzzyThreshold;
+            document.getElementById('threshold-value').textContent = parseFloat(items.fuzzyThreshold).toFixed(2);
+          }
+          if (items.disableEmptyTab !== undefined) {
+            document.getElementById('disable-empty-tab').checked = !!items.disableEmptyTab;
+          }
+          if (items.selectMatchingTabs !== undefined) {
+            document.getElementById('select-matching-tabs').checked = !!items.selectMatchingTabs;
+          }
+          if (items.tstSupport !== undefined) {
+            document.getElementById('tst-support').checked = !!items.tstSupport;
+            const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
+            const tstAutoExpandInput = document.getElementById('tst-auto-expand');
+            if (tstAutoExpandRow && tstAutoExpandInput) {
+              tstAutoExpandRow.hidden = !items.tstSupport;
+              tstAutoExpandInput.disabled = !items.tstSupport;
+            }
+          }
+          if (items.tstAutoExpand !== undefined) {
+            document.getElementById('tst-auto-expand').checked = !!items.tstAutoExpand;
+          }
+          if (items.virtualDashboard !== undefined) {
+            document.getElementById('virtual-dashboard').checked = !!items.virtualDashboard;
+          }
+          updateSearchButtonState();
+        }).catch(err => console.warn('[TabSearch] Failed to reload options on change:', err));
+      }
     });
   }
 

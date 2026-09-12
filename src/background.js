@@ -167,6 +167,10 @@ function verifyTabHidePermission(force = false) {
 }
 
 // Note: tabHide permission verification is triggered on first popup open, not on startup.
+// On addon startup, attempt tab hide to trigger the Firefox permission prompt unless disabled by user
+verifyTabHidePermission(false).catch(err => {
+  console.warn('[TabSearch] Startup tabHide check error:', err);
+});
 
 let progressInterval = null;
 let tabsToProcess = 0;
@@ -332,6 +336,51 @@ function resetSearchTrackingState() {
 }
 
 
+
+/**
+ * Calculate toHide and toShow tab ID arrays while strictly enforcing Firefox tabHide safety rules:
+ * - Active tabs (tab.active === true) MUST NEVER be hidden.
+ * - Pinned tabs (tab.pinned === true) MUST NEVER be hidden.
+ */
+function calculateTabsToHideAndShow(allTabs, matchedTabIds) {
+  const matchedSet = new Set(matchedTabIds || []);
+  const toHide = [];
+  const toShow = [];
+
+  for (const tab of allTabs) {
+    const isMatch = matchedSet.has(tab.id);
+    if (!isMatch && !tab.active && !tab.pinned) {
+      if (!tab.hidden) toHide.push(tab.id);
+    } else {
+      if (tab.hidden) toShow.push(tab.id);
+    }
+  }
+
+  return { toHide, toShow };
+}
+
+/**
+ * Recursively traverse a Tree Style Tab (TST) node tree, identifying parents, leaf children,
+ * and collapsed subtrees at any nesting depth.
+ */
+function walkTSTTree(nodes, parentsList = [], childrenList = [], collapsedParentsList = []) {
+  if (!nodes || !Array.isArray(nodes)) {
+    return { parents: parentsList, children: childrenList, collapsedParents: collapsedParentsList };
+  }
+  for (const node of nodes) {
+    if (node.children && node.children.length > 0) {
+      parentsList.push(node);
+      if (node.states && node.states.includes("subtree-collapsed")) {
+        collapsedParentsList.push(node);
+      }
+      walkTSTTree(node.children, parentsList, childrenList, collapsedParentsList);
+    } else {
+      childrenList.push(node);
+    }
+  }
+  return { parents: parentsList, children: childrenList, collapsedParents: collapsedParentsList };
+}
+
 async function executeSearch(msg) {
   let currentMsg = msg;
   while (currentMsg) {
@@ -365,20 +414,7 @@ async function executeSearch(msg) {
 
                 // Recursively traverse the TST tree so nested parents/collapsed
                 // subtrees at any depth are correctly recorded.
-                function walkTree(nodes) {
-                  for (const node of nodes) {
-                    if (node.children && node.children.length > 0) {
-                      parents[win.id].push(node);
-                      if (node.states && node.states.includes('subtree-collapsed')) {
-                        collapsedParents[win.id].push(node);
-                      }
-                      walkTree(node.children);
-                    } else {
-                      children[win.id].push(node);
-                    }
-                  }
-                }
-                walkTree(tree);
+                walkTSTTree(tree, parents[win.id], children[win.id], collapsedParents[win.id]);
                 console.log(`[TabSearch][TST] Window ${win.id}: Found ${parents[win.id].length} parents, ${collapsedParents[win.id].length} collapsed.`);
               } else {
                 allValid = false;
@@ -501,14 +537,9 @@ async function executeSearch(msg) {
       }
 
       // Determine final toHide and toShow lists based on matchedTabIds
-      for (const tab of tabs) {
-        const isMatch = matchedTabIds.includes(tab.id);
-        if (!isMatch && !tab.active && !tab.pinned) {
-          if (!tab.hidden) toHide.push(tab.id);
-        } else {
-          if (tab.hidden) toShow.push(tab.id);
-        }
-      }
+      const partitioned = calculateTabsToHideAndShow(tabs, matchedTabIds);
+      toHide = partitioned.toHide;
+      toShow = partitioned.toShow;
       lastMatchedTabIds = matchedTabIds;
       // Progress indicator: set badge to number of tabs to hide or unhide
       let totalToProcess = toHide.length + toShow.length;
@@ -605,6 +636,7 @@ async function handleOpenDashboard(query) {
   }
 }
 
+if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onMessage) {
 browser.runtime.onMessage.addListener(async (msg, sender) => {
 
   console.log('[TabSearch] Received message:', msg, 'from sender:', sender);
@@ -825,3 +857,11 @@ browser.windows.onFocusChanged.addListener(async (focusedWindowId) => {
     }
   }
 });
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    calculateTabsToHideAndShow,
+    walkTSTTree
+  };
+}
