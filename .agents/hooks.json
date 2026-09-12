@@ -1,0 +1,17 @@
+{
+  "webext-lint-check": {
+    "enabled": true,
+    "PostToolUse": [
+      {
+        "matcher": "replace_file_content|write_to_file",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd /c e:\\OneDrive\\Documents\\GitHub\\TabSearch\\.agents\\lint.bat",
+            "timeout": 25
+          }
+        ]
+      }
+    ]
+  }
+}
