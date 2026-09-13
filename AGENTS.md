@@ -47,6 +47,7 @@ You are assisting development on **TabSearch**, a lightweight, Firefox-focused W
 ## 5. Verification & Release Quality Gates
 
 - **Unit Testing Gate**: All new features and non-trivial logic changes MUST include associated automated unit tests in `tests/`. Run `npm test` (`node --test`) to ensure 100% passing tests with 0 failures before marking tasks complete.
+- **Docstring & JSDoc Coverage Gate**: Every new or modified function/method touched in a diff MUST include comprehensive JSDoc docstrings (`/** ... */`) documenting its description, `@param` tags (with types and descriptions), and `@returns` tag. Docstring coverage MUST meet or exceed 80% to ensure clean automated review passes (e.g., CodeRabbit).
 - **Documentation Review Gate**: For any new feature, option, or behavior change, explicitly review and update both `README.md` (documentation + changelog) and `AMO/AMO_DESCRIPTION.md` (Add-on store listing).
 - **Linter Gate**: Run `npx web-ext lint` after making changes. The code must produce **0 errors**.
 - **Version Synchronization**: The `version` field in `package.json` and `src/manifest.json` must always match and follow Semantic Versioning (`MAJOR.MINOR.PATCH`).

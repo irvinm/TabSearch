@@ -7,12 +7,20 @@
     review and updates to both README.md and AMO/AMO_DESCRIPTION.md; Section 3
     (Development Workflow & Quality Gates) expanded to include explicit Automated
     Testing and Documentation Review gates.
+  Version change: 1.2.0 -> 1.3.0
+  Bump rationale: MINOR — Principle V (Verification) amended to mandate JSDoc
+    docstrings on all touched or new functions to meet the 80% coverage threshold;
+    Section 3 (Development Workflow & Quality Gates) expanded to include explicit
+    Docstring & JSDoc Coverage Gate.
   Modified principles (this amendment):
     - V. Verification (NON-NEGOTIABLE) -> Added mandatory unit testing requirement
     - VII. Versioning & Release Hygiene -> Added mandatory README.md and AMO_DESCRIPTION.md review
+    - V. Verification (NON-NEGOTIABLE) -> Added mandatory JSDoc docstring coverage (>= 80%)
   Modified sections (this amendment):
     - Development Workflow & Quality Gates (Added Automated Testing Gate & Documentation Review Gate)
+    - Development Workflow & Quality Gates (Added Docstring & JSDoc Coverage Gate)
   Prior history:
+    - 1.2.0 (2026-09-12): Added automated testing and documentation review gates.
     - 1.1.0 (2026-09-12): Principle II redefined to "Firefox-Only Target".
     - 1.0.0 (2026-08-28): First ratification; established 7-principle set.
   Templates requiring updates:
@@ -62,6 +70,11 @@ utilities) AND manually verified against the feature's `quickstart.md`
 scenarios on Firefox. Unit tests MUST be executable via `npm test` with zero
 failures. A feature that cannot be demonstrated working or fails automated tests
 MUST NOT be marked complete or released.
+utilities), documented with standard JSDoc comments (`@param`, `@returns`) meeting
+or exceeding 80% docstring coverage, AND manually verified against the feature's
+`quickstart.md` scenarios on Firefox. Unit tests MUST be executable via `npm test`
+with zero failures. A feature that cannot be demonstrated working or fails automated
+tests MUST NOT be marked complete or released.
 
 ### VI. Minimal Dependencies
 The extension MUST prefer vanilla JavaScript and the existing `Fuse.js`
@@ -97,6 +110,10 @@ behavior or storage keys MUST bump MAJOR and be called out in the changelog.
   with justification.
 - **Automated Testing Gate**: All new feature logic MUST have automated unit
   tests; `npm test` MUST pass with 0 failures before merge or release (Principle V).
+- **Docstring & JSDoc Coverage Gate**: Every new or modified function touched in
+  a diff MUST include complete JSDoc docstrings (`/** ... */`) documenting its
+  description, `@param` types/descriptions, and `@returns`. Docstring coverage
+  MUST meet or exceed 80% (Principle V).
 - **Verification Gate**: A feature MUST NOT be merged or released without the
   `quickstart.md` scenarios passing (Principle V).
 - **Documentation Review Gate**: `README.md` and `AMO/AMO_DESCRIPTION.md`
@@ -114,3 +131,4 @@ principle across the dependent templates and active feature artifacts.
 Compliance is verified at the plan gate and again before release.
 
 **Version**: 1.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 1.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12

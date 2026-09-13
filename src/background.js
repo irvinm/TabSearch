@@ -381,10 +381,7 @@ function resetSearchTrackingState() {
   recentTabActivation = null;
 }
 
-
-
 /**
- * Calculate toHide and toShow tab ID arrays while strictly enforcing Firefox tabHide safety rules:
  * Calculates toHide and toShow tab ID arrays while strictly enforcing Firefox tabHide safety rules:
  * - Active tabs (tab.active === true) MUST NEVER be hidden.
  * - Pinned tabs (tab.pinned === true) MUST NEVER be hidden.
@@ -411,7 +408,6 @@ function calculateTabsToHideAndShow(allTabs, matchedTabIds) {
 }
 
 /**
- * Recursively traverse a Tree Style Tab (TST) node tree, identifying parents, leaf children,
  * Recursively traverses a Tree Style Tab (TST) node tree, identifying parents, leaf children,
  * and collapsed subtrees at any nesting depth.
  *

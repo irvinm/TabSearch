@@ -1,4 +1,3 @@
-// --- Monitor and React to All Option Changes ---
 /**
  * Resets the search input and instructs the background script to restore the pre-search tab visibility state.
  *
@@ -27,7 +26,6 @@ function handleOptionChange() {
   }
 }
 
-// Audio search button handler
 /**
  * Displays a non-intrusive modal overlay notifying the user that no tabs are actively playing audio.
  *
@@ -591,7 +589,6 @@ window.addEventListener('DOMContentLoaded', function() {
     handleOptionChange();
   });
 
-  // Check tabHide permission status
   /**
    * Verifies whether the extension currently holds the tabHide permission and adjusts the warning banner accordingly.
    *
