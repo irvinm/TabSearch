@@ -610,15 +610,17 @@ function renderResults(activeWindowId) {
     const totalCount = totalTabsPerWindow[windowId] || 0;
     const matchCount = tabsInWindow.length;
 
+    // Window section container
     const section = document.createElement('div');
     section.className = 'window-section';
-    section.dataset.windowId = String(windowId);
+    section.dataset.windowId = windowId;
 
     const isCollapsed = collapsedWindows.has(windowId);
     if (isCollapsed) {
       section.classList.add('collapsed');
     }
 
+    // Window header (accessible button behavior)
     const header = document.createElement('div');
     header.className = 'window-header';
     header.setAttribute('role', 'button');
@@ -652,6 +654,7 @@ function renderResults(activeWindowId) {
       updateHighlightUI();
     };
 
+    // Click and keyboard toggle listeners
     header.addEventListener('click', toggleCollapse);
     header.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.key === ' ') {
@@ -662,16 +665,17 @@ function renderResults(activeWindowId) {
 
     section.appendChild(header);
 
-    const tabListDiv = document.createElement('div');
-    tabListDiv.className = 'tab-list';
+      // Create tab list
+      const tabListDiv = document.createElement('div');
+      tabListDiv.className = 'tab-list';
 
-    if (tabsInWindow.length === 0) {
-      const emptyMsg = document.createElement('div');
-      emptyMsg.className = 'empty-window-message';
-      emptyMsg.textContent = 'No matching tabs in this window';
-      tabListDiv.appendChild(emptyMsg);
-    } else {
-      tabsInWindow.forEach((tab) => {
+      if (tabsInWindow.length === 0) {
+        const emptyMsg = document.createElement('div');
+        emptyMsg.className = 'empty-window-message';
+        emptyMsg.textContent = 'No matching tabs in this window';
+        tabListDiv.appendChild(emptyMsg);
+      } else {
+        tabsInWindow.forEach(tab => {
         const anchor = document.createElement('a');
         anchor.className = 'tab-item-link';
         anchor.href = '#';
@@ -682,8 +686,9 @@ function renderResults(activeWindowId) {
 
         const tabItem = document.createElement('div');
         tabItem.className = 'tab-result-item';
-        tabItem.dataset.tabId = String(tab.id);
+        tabItem.dataset.tabId = tab.id;
 
+        // Favicon
         const faviconImg = document.createElement('img');
         faviconImg.className = 'tab-favicon';
         faviconImg.addEventListener('error', () => {
@@ -696,6 +701,7 @@ function renderResults(activeWindowId) {
         });
         faviconImg.src = getTabFaviconUrl(tab);
 
+        // Tab Information (Title, URL)
         const tabInfo = document.createElement('div');
         tabInfo.className = 'tab-info';
 
@@ -715,18 +721,19 @@ function renderResults(activeWindowId) {
 
         anchor.appendChild(tabItem);
         tabListDiv.appendChild(anchor);
-      });
-    }
+        });
+      }
 
-    section.appendChild(tabListDiv);
-    container.appendChild(section);
-  });
+      section.appendChild(tabListDiv);
+      container.appendChild(section);
+    });
 
-  renderedGroups = groups;
-  renderedWindowIds = windowIds;
-  rebuildFlatResults();
-  updateHighlightUI();
-}
+    renderedGroups = groups;
+    renderedWindowIds = windowIds;
+    rebuildFlatResults();
+    updateHighlightUI();
+  }
+
 /**
  * Moves the keyboard highlight cursor through the visible tab list.
  *
