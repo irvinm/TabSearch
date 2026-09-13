@@ -6,17 +6,31 @@
   <link rel="stylesheet" href="common.css">
 </head>
 <body>
-  <div id="permission-warning" class="permission-banner" hidden>
-    <div class="permission-message">
-      ⚠️ <strong>Permission needed to hide tabs.</strong>
-      <span id="permission-guidance" class="permission-guidance" hidden>Firefox will ask you to confirm this. Please click "Keep" when prompted.</span>
+  <div id="intro-screen" class="intro-screen" hidden>
+    <div class="intro-header">
+      <img src="images/search64.png" alt="TabSearch" class="intro-icon" width="48" height="48">
+      <h2 class="intro-title">Welcome to TabSearch</h2>
     </div>
-    <div class="permission-actions">
-      <button id="grant-permission-btn" type="button" class="grant-btn">Enable Tab Hiding</button>
-      <a id="permission-help-link" href="privacy.html" target="_blank" class="help-link">Why?</a>
+    <div class="intro-body">
+      <p class="intro-desc">
+        TabSearch searches across all your open tabs and temporarily hides non-matching tabs so you can quickly find what you need.
+      </p>
+      <div class="intro-alert">
+        <div class="intro-alert-title">One-Time Permission Setup</div>
+        <p class="intro-alert-text">
+          Firefox requires your permission to hide and show tabs. When you click below, this popup will close and TabSearch will briefly trigger tab hiding so Firefox displays the permission prompt.
+        </p>
+        <p class="intro-alert-action">
+          Please click <strong>&ldquo;Keep tabs hidden&rdquo;</strong> in the Firefox prompt to grant permission.
+        </p>
+      </div>
+    </div>
+    <div class="intro-actions">
+      <button id="intro-enable-btn" type="button" class="primary-btn intro-btn">Enable Tab Hiding</button>
     </div>
   </div>
-  <form id="search-form" autocomplete="off">
+
+  <form id="search-form" autocomplete="off" hidden>
     <div class="search-bar">
       <input id="search" type="text" placeholder="Search term ...">
       <button id="search-btn" type="submit" class="primary-btn">Search</button>

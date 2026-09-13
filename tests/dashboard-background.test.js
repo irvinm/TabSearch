@@ -56,7 +56,8 @@ function loadBackground({ initialTabs = [], lastFocusedWindowId = 1 } = {}) {
           }
           return {};
         },
-        async set() {}
+        async set() {},
+        async remove() {}
       }
     },
     tabs: {

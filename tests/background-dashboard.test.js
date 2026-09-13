@@ -34,22 +34,38 @@ function loadBackground(options = {}) {
   };
   const events = {
     message: createEvent(),
+    onConnect: createEvent(),
+    onInstalled: createEvent(),
+    startup: createEvent(),
     tabActivated: createEvent(),
     tabRemoved: createEvent(),
     windowFocusChanged: createEvent()
   };
 
   const storageGet = async (keys) => {
-    if (keys.length === 1 && keys[0] === 'virtualDashboard') {
+    if (options.storageGet) {
+      const custom = await options.storageGet(keys);
+      if (custom && custom.virtualDashboard !== undefined) {
+        return custom;
+      }
+    }
+    if (Array.isArray(keys) && keys.includes('virtualDashboard')) {
       return { virtualDashboard: true };
     }
     return options.storageGet ? options.storageGet(keys) : {};
   };
 
   const browser = {
+    action: {
+      setBadgeText: () => {},
+      setBadgeBackgroundColor: () => {}
+    },
     runtime: {
       getURL: (resource = '') => `moz-extension://tabsearch/${resource}`,
+      onConnect: events.onConnect,
+      onInstalled: events.onInstalled,
       onMessage: events.message,
+      onStartup: events.startup,
       sendMessage: async (...args) => {
         calls.sentMessages.push(args);
         if (options.sendMessage) return options.sendMessage(...args);
@@ -61,6 +77,9 @@ function loadBackground(options = {}) {
         get: storageGet,
         set: async (value) => {
           calls.stored.push(value);
+        },
+        remove: async (keys) => {
+          calls.storageRemoved = keys;
         }
       }
     },
@@ -111,15 +130,15 @@ function loadBackground(options = {}) {
   const context = vm.createContext({
     browser,
     clearInterval,
-    clearTimeout,
+    clearTimeout: options.clearTimeout || clearTimeout,
     console: { error() {}, log() {}, warn() {} },
     encodeURIComponent,
     module: { exports: {} },
     setInterval,
-    setTimeout: (callback) => {
+    setTimeout: options.setTimeout || ((callback) => {
       callback();
       return 1;
-    }
+    })
   });
   vm.runInContext(BACKGROUND_SOURCE, context, { filename: 'background.js' });
 
@@ -210,69 +229,189 @@ test('activate-tab message focuses and activates the target, then closes the das
   assert.equal(vm.runInContext('dashboardTabId', context), null);
 });
 
-test('verifyTabHidePermission uses a safe web tab and persists successful verification', async () => {
+test('triggerInitialTabHide always creates, hides, and removes a temporary tab without touching real tabs', async () => {
   const tabs = [
     { id: 1, active: true, pinned: false, url: 'https://active.example/' },
     { id: 2, active: false, pinned: true, url: 'https://pinned.example/' },
-    { id: 3, active: false, pinned: false, url: 'moz-extension://other/page.html' },
-    { id: 4, active: false, pinned: false, url: 'chrome-extension://other/page.html' },
     { id: 5, active: false, pinned: false, url: 'https://safe.example/' }
   ];
-  const { calls, context } = loadBackground({ queryTabs: async () => tabs });
-
-  const granted = await backgroundFunction(context, 'verifyTabHidePermission')(false);
-
-  assert.equal(granted, true);
-  assert.deepEqual(plain(calls.hidden), [[5]]);
-  assert.deepEqual(plain(calls.shown), [[5]], 'an existing tab must be restored after probing');
-  assert.deepEqual(plain(calls.stored), [{ tabHideConfirmed: true }]);
-  assert.equal(calls.created.length, 0);
-});
-
-test('verifyTabHidePermission creates and removes a temporary tab when no safe tab exists', async () => {
   const { calls, context } = loadBackground({
-    queryTabs: async () => [
-      { id: 1, active: true, pinned: false, url: 'https://active.example/' },
-      { id: 2, active: false, pinned: false, url: 'moz-extension://tabsearch/popup.html' }
-    ],
-    createTab: async (createProperties) => ({ id: 44, windowId: 7, ...createProperties })
+    storageGet: async () => ({ hasCompletedIntro: true, disableEmptyTab: false }),
+    queryTabs: async () => tabs,
+    createTab: async (createProperties) => ({ id: 99, windowId: 7, ...createProperties })
   });
 
-  const granted = await backgroundFunction(context, 'verifyTabHidePermission')(false);
+  const granted = await backgroundFunction(context, 'triggerInitialTabHide')(false);
 
   assert.equal(granted, true);
   assert.deepEqual(plain(calls.created), [{ active: false, windowId: 7 }]);
-  assert.deepEqual(plain(calls.hidden), [[44]]);
-  assert.deepEqual(calls.removed, [44]);
-  assert.equal(calls.shown.length, 0, 'temporary tabs should be removed instead of shown');
+  assert.deepEqual(plain(calls.hidden), [[99]]);
+  assert.deepEqual(calls.removed, [99]);
+  assert.equal(calls.shown.length, 0, 'real tabs must never be hidden or shown');
+  assert.equal(calls.stored.length, 0, 'tabHideConfirmed must not be stored');
 });
 
-test('verifyTabHidePermission records a failed probe and cleans up its temporary tab', async () => {
+test('triggerInitialTabHide handles a failed trigger and cleans up its temporary tab in finally block', async () => {
   const { calls, context } = loadBackground({
-    queryTabs: async () => [
-      { id: 1, active: true, pinned: false, url: 'https://active.example/' }
-    ],
     createTab: async (createProperties) => ({ id: 45, windowId: 7, ...createProperties }),
     hideTabs: async () => { throw new Error('permission denied'); }
   });
 
-  const granted = await backgroundFunction(context, 'verifyTabHidePermission')(true);
+  const granted = await backgroundFunction(context, 'triggerInitialTabHide')(true);
 
   assert.equal(granted, false);
-  assert.deepEqual(plain(calls.stored), [{ tabHideConfirmed: false }]);
+  assert.equal(calls.stored.length, 0, 'tabHideConfirmed must not be stored on failure');
   assert.deepEqual(calls.removed, [45]);
 });
 
-test('verifyTabHidePermission honors cached success and the user opt-out without probing tabs', async () => {
-  const cached = loadBackground({
-    storageGet: async () => ({ tabHideConfirmed: true, disableEmptyTab: false })
-  });
+test('triggerInitialTabHide honors user opt-out without probing tabs and provides backwards-compatible alias', async () => {
   const optedOut = loadBackground({
-    storageGet: async () => ({ tabHideConfirmed: false, disableEmptyTab: true })
+    storageGet: async () => ({ disableEmptyTab: true })
+  });
+  const normal = loadBackground({
+    storageGet: async () => ({ disableEmptyTab: false }),
+    createTab: async (createProperties) => ({ id: 77, windowId: 7, ...createProperties })
   });
 
-  assert.equal(await backgroundFunction(cached.context, 'verifyTabHidePermission')(false), true);
+  assert.equal(await backgroundFunction(optedOut.context, 'triggerInitialTabHide')(false), false);
   assert.equal(await backgroundFunction(optedOut.context, 'verifyTabHidePermission')(false), false);
-  assert.equal(cached.calls.hidden.length, 0);
+  assert.equal(optedOut.calls.created.length, 0);
   assert.equal(optedOut.calls.hidden.length, 0);
+
+  assert.equal(await backgroundFunction(normal.context, 'triggerInitialTabHide')(false), true);
+  assert.deepEqual(plain(normal.calls.created), [{ active: false, windowId: 7 }]);
+  assert.deepEqual(plain(normal.calls.hidden), [[77]]);
+  assert.deepEqual(normal.calls.removed, [77]);
+});
+
+test('triggerInitialTabHide force parameter bypasses disableEmptyTab opt-out', async () => {
+  const forced = loadBackground({
+    storageGet: async () => ({ disableEmptyTab: true }),
+    createTab: async (createProperties) => ({ id: 66, windowId: 7, ...createProperties })
+  });
+
+  // Without force: should skip due to disableEmptyTab
+  assert.equal(await backgroundFunction(forced.context, 'triggerInitialTabHide')(false), false);
+  assert.equal(forced.calls.created.length, 0);
+
+  // With force (e.g. from intro screen button click): should execute probe
+  assert.equal(await backgroundFunction(forced.context, 'triggerInitialTabHide')(true), true);
+  assert.deepEqual(plain(forced.calls.created), [{ active: false, windowId: 7 }]);
+  assert.deepEqual(plain(forced.calls.hidden), [[66]]);
+  assert.deepEqual(forced.calls.removed, [66]);
+});
+
+test('addon install / load never triggers tab hiding automatically', async () => {
+  const { calls } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: false }),
+    createTab: async (createProperties) => ({ id: 99, windowId: 7, ...createProperties })
+  });
+
+  // Zero tabs created or hidden on install/load
+  assert.equal(calls.created.length, 0);
+  assert.equal(calls.hidden.length, 0);
+});
+
+test('runtime.onStartup triggers tab hiding via temporary tab when disableEmptyTab is false', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: false }),
+    createTab: async (createProperties) => ({ id: 55, windowId: 7, ...createProperties })
+  });
+
+  await events.startup.listener();
+
+  assert.deepEqual(plain(calls.created), [{ active: false, windowId: 7 }]);
+  assert.deepEqual(plain(calls.hidden), [[55]]);
+  assert.deepEqual(calls.removed, [55]);
+});
+
+test('runtime.onStartup skips tab hiding when disableEmptyTab is true', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: true }),
+    createTab: async (createProperties) => ({ id: 55, windowId: 7, ...createProperties })
+  });
+
+  await events.startup.listener();
+
+  assert.equal(calls.created.length, 0);
+  assert.equal(calls.hidden.length, 0);
+  assert.equal(calls.removed.length, 0);
+});
+
+test('popup-closed triggers tab hiding via temporary tab when disableEmptyTab is not checked', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: true, disableEmptyTab: false }),
+    createTab: async (createProperties) => ({ id: 88, windowId: 7, ...createProperties })
+  });
+
+  await events.message.listener({ action: 'popup-closed' }, {});
+
+  assert.deepEqual(plain(calls.created), [{ active: false, windowId: 7 }]);
+  assert.deepEqual(plain(calls.hidden), [[88]]);
+  assert.deepEqual(calls.removed, [88]);
+});
+
+test('popup-closed skips tab hiding when disableEmptyTab is checked', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: true, disableEmptyTab: true }),
+    createTab: async (createProperties) => ({ id: 88, windowId: 7, ...createProperties })
+  });
+
+  await events.message.listener({ action: 'popup-closed' }, {});
+
+  assert.equal(calls.created.length, 0);
+  assert.equal(calls.hidden.length, 0);
+  assert.equal(calls.removed.length, 0);
+});
+
+test('popup-closed marks hasCompletedIntroPrompt true so intro never re-appears after clicking off', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ hasCompletedIntroPrompt: false, disableEmptyTab: true })
+  });
+
+  await events.message.listener({ action: 'popup-closed' }, {});
+
+  const storedIntro = calls.stored.find(item => item.hasCompletedIntroPrompt !== undefined);
+  assert.ok(storedIntro, 'hasCompletedIntroPrompt must be persisted on popup close');
+  assert.equal(storedIntro.hasCompletedIntroPrompt, true);
+});
+
+test('popup-lifecycle port disconnect triggers tab hiding when disableEmptyTab is not checked', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: false }),
+    createTab: async (createProperties) => ({ id: 99, windowId: 7, ...createProperties })
+  });
+
+  const disconnectEvent = createEvent();
+  const port = {
+    name: 'popup-lifecycle',
+    onDisconnect: disconnectEvent
+  };
+
+  events.onConnect.listener(port);
+  await disconnectEvent.listener();
+
+  assert.deepEqual(plain(calls.created), [{ active: false, windowId: 7 }]);
+  assert.deepEqual(plain(calls.hidden), [[99]]);
+  assert.deepEqual(calls.removed, [99]);
+});
+
+test('popup-lifecycle port disconnect skips tab hiding when disableEmptyTab is checked', async () => {
+  const { calls, events } = loadBackground({
+    storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: true }),
+    createTab: async (createProperties) => ({ id: 99, windowId: 7, ...createProperties })
+  });
+
+  const disconnectEvent = createEvent();
+  const port = {
+    name: 'popup-lifecycle',
+    onDisconnect: disconnectEvent
+  };
+
+  events.onConnect.listener(port);
+  await disconnectEvent.listener();
+
+  assert.equal(calls.created.length, 0);
+  assert.equal(calls.hidden.length, 0);
+  assert.equal(calls.removed.length, 0);
 });

@@ -60,9 +60,10 @@
 
 ### Permission Initialization
 
-- Option to disable the initial tab-hiding action (once the privacy dialog is accepted).
-    - The addon briefly hides and shows the last tab on startup to trigger Firefox's tab-hiding permission prompt.
-    - Once permission is granted, you can disable this startup initialization step.
+- One-time onboarding setup: On the first click of the addon icon after installation, TabSearch displays a welcome view with guidance on Firefox's native tab-hiding permission requirement.
+- Option to disable the initial tab-hiding action (once the permission dialog has been granted).
+    - The addon uses a temporary background tab to trigger Firefox's tab-hiding permission prompt without disturbing or shifting existing user tabs.
+    - Once permission is granted, you can disable this initialization step.
 
 
 ## Search Dialog Behavior

@@ -105,103 +105,117 @@ function removeFlattenedState(tabId) {
 }
 
 /**
- * Verifies whether tab hiding is permitted by attempting a transient hide/show on a test tab.
+ * Triggers an initial transient tab hide to prompt Firefox's native tab-hiding doorhanger
+ * if tab hiding is enabled and not opted out via user settings.
+ * Always creates a temporary background tab that is immediately hidden and removed
+ * so that no user tabs are ever disturbed, shifted, or flickered.
  *
- * @param {boolean} [force=false] - Whether to bypass cached permission confirmation.
- * @returns {Promise<boolean>} Resolves to true if tab hiding is confirmed functional.
+ * @param {boolean} [force=false] - Whether to bypass the disableEmptyTab check.
+ * @returns {Promise<boolean>} Resolves to true if the initial tab hide succeeded, false otherwise.
  */
-function verifyTabHidePermission(force = false) {
+let isTriggeringInitialHide = false;
+
+async function triggerInitialTabHide(force = false) {
   if (
     typeof browser === 'undefined' || 
-    !browser.tabs || !browser.tabs.hide || !browser.tabs.show || !browser.tabs.query || !browser.windows ||
+    !browser.tabs || !browser.tabs.hide || !browser.tabs.create || !browser.tabs.remove || !browser.windows ||
     !browser.storage || !browser.storage.local
   ) {
-    return Promise.resolve(false);
+    return false;
   }
 
-  return browser.storage.local.get(['tabHideConfirmed', 'disableEmptyTab']).then((items) => {
-    if (items.tabHideConfirmed && !force) {
-      console.log('[TabSearch] tabHide permission already confirmed.');
-      return true;
-    }
+  if (isTriggeringInitialHide) {
+    console.log('[TabSearch] Initial tabHide trigger already in progress; skipping duplicate.');
+    return false;
+  }
+
+  isTriggeringInitialHide = true;
+  try {
+    const items = await browser.storage.local.get(['disableEmptyTab']);
     if (items.disableEmptyTab && !force) {
-      console.log('[TabSearch] Startup tabHide check disabled by user setting.');
+      console.log('[TabSearch] Initial tabHide trigger disabled by user setting.');
       return false;
     }
 
-    console.log('[TabSearch] Verifying tabHide permission...');
-    return browser.windows.getCurrent().then((win) => {
-      const queryInfo = win && win.id ? { windowId: win.id } : {};
-      return browser.tabs.query(queryInfo).then((tabs) => {
-        if (tabs.length === 0) {
-          return false;
+    console.log('[TabSearch] Triggering initial tabHide doorhanger prompt via temporary tab...');
+    let win = null;
+    try {
+      if (typeof browser.windows.getLastFocused === 'function') {
+        win = await browser.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
+      }
+    } catch {
+      win = null;
+    }
+    if (!win || !win.id) {
+      try {
+        if (typeof browser.windows.getCurrent === 'function') {
+          win = await browser.windows.getCurrent().catch(() => null);
         }
+      } catch {
+        win = null;
+      }
+    }
+    const createInfo = win && win.id ? { active: false, windowId: win.id } : { active: false };
+    const tempTab = await browser.tabs.create(createInfo);
 
-        // Find a tab we can safely hide (must not be active, must not be pinned, and must not be an extension page)
-        const targetTab = tabs.find(t => 
-          !t.active && 
-          !t.pinned && 
-          t.url && 
-          !t.url.startsWith('moz-extension://') && 
-          !t.url.startsWith('chrome-extension://')
-        );
-        let checkPromise;
-        let isTemp = false;
-
-        if (targetTab) {
-          checkPromise = Promise.resolve(targetTab);
-        } else {
-          // If no safe tab, create a temporary one in the background
-          isTemp = true;
-          const createInfo = win && win.id ? { active: false, windowId: win.id } : { active: false };
-          checkPromise = browser.tabs.create(createInfo);
-        }
-
-        return checkPromise.then((tab) => {
-          return browser.tabs.hide([tab.id]).then(() => {
-            console.log('[TabSearch] tabHide permission is active.');
-            // Persist confirmation since the hide test succeeded (permission is active)
-            browser.storage.local.set({ tabHideConfirmed: true });
-            if (isTemp) {
-              browser.tabs.remove(tab.id).catch(() => {});
-            } else {
-              setTimeout(() => {
-                browser.tabs.show([tab.id]).catch(err => {
-                  console.warn('[TabSearch] Failed to show verified tab:', err);
-                });
-              }, 200);
-            }
-            return true;
-          }).catch((err) => {
-            console.warn('[TabSearch] tabHide permission is NOT active:', err);
-            browser.storage.local.set({ tabHideConfirmed: false });
-            if (isTemp) {
-              browser.tabs.remove(tab.id).catch(() => {});
-            }
-            return false;
-          });
-        });
-      });
-    });
-  }).catch((err) => {
-    console.error('[TabSearch] Error in verifyTabHidePermission:', err);
+    try {
+      await browser.tabs.hide([tempTab.id]);
+      console.log('[TabSearch] Initial tabHide trigger executed successfully.');
+      return true;
+    } catch (hideErr) {
+      console.warn('[TabSearch] Initial tabHide trigger failed:', hideErr);
+      return false;
+    } finally {
+      await browser.tabs.remove(tempTab.id).catch(() => {});
+    }
+  } catch (err) {
+    console.error('[TabSearch] Error in triggerInitialTabHide:', err);
     return false;
+  } finally {
+    isTriggeringInitialHide = false;
+  }
+}
+
+/**
+ * Backwards-compatible alias for triggerInitialTabHide.
+ *
+ * @param {boolean} [force=false] - Whether to bypass the disableEmptyTab check.
+ * @returns {Promise<boolean>} Resolves to true if tab hiding succeeded.
+ */
+function verifyTabHidePermission(force = false) {
+  return triggerInitialTabHide(force);
+}
+
+// Clean up deprecated keys from local storage
+if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+  if (typeof browser.storage.local.remove === 'function') {
+    browser.storage.local.remove('tabHideConfirmed').catch(() => {});
+  }
+}
+
+// Reset intro prompt flag on fresh install so the intro popup appears on first click
+if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onInstalled) {
+  browser.runtime.onInstalled.addListener((details) => {
+    if (details.reason === 'install') {
+      browser.storage.local.set({ hasCompletedIntroPrompt: false }).catch(() => {});
+    }
   });
 }
 
-// On addon startup, attempt tab hide to trigger the Firefox permission prompt unless disabled by user
-// Gate startup verification on virtualDashboard setting: skip if virtual dashboard mode is active
-if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
-  browser.storage.local.get(['virtualDashboard']).then((items) => {
-    if (!items.virtualDashboard) {
-      verifyTabHidePermission(false).catch(err => {
-        console.warn('[TabSearch] Startup tabHide check error:', err);
-      });
-    } else {
-      console.log('[TabSearch] Startup tabHide check skipped (virtual dashboard mode enabled).');
+// On browser startup (fired when the browser profile starts, not on install),
+// attempt tab hide to trigger the Firefox permission prompt unless disabled by user
+if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onStartup) {
+  browser.runtime.onStartup.addListener(async () => {
+    if (browser.storage && browser.storage.local) {
+      try {
+        const items = await browser.storage.local.get(['disableEmptyTab']);
+        if (!items.disableEmptyTab) {
+          await triggerInitialTabHide(false);
+        }
+      } catch (err) {
+        console.warn('[TabSearch] onStartup tabHide trigger error:', err);
+      }
     }
-  }).catch((err) => {
-    console.warn('[TabSearch] Failed to check virtualDashboard setting at startup:', err);
   });
 }
 
@@ -719,6 +733,185 @@ async function handleOpenDashboard(query) {
   }
 }
 
+let popupCloseInProgress = false;
+
+/**
+ * Handles popup closure: cleans up search/restores tab states,
+ * and triggers tab hiding as a backup if disableEmptyTab is not checked.
+ *
+ * @returns {Promise<void>} Resolves when popup close handling completes.
+ */
+async function handlePopupClosed() {
+  if (popupCloseInProgress) {
+    return;
+  }
+  popupCloseInProgress = true;
+  try {
+    pendingSearchMsg = null;
+
+    // Check if virtual dashboard mode is active, skip restoration if so
+    let isVirtualDashboard = false;
+    try {
+      const items = await browser.storage.local.get(['virtualDashboard']);
+      isVirtualDashboard = !!items.virtualDashboard;
+      if (isVirtualDashboard) {
+        console.log('[TabSearch] popup-closed: Virtual dashboard mode active, skipping tab restoration');
+        resetSearchTrackingState();
+      }
+    } catch (e) {
+      console.warn('[TabSearch] Failed to check virtualDashboard setting on popup-closed:', e);
+    }
+
+    if (!isVirtualDashboard) {
+      // Wait for any active search to complete to avoid racing with restoration
+      const startTime = Date.now();
+      while (searchInProgress && (Date.now() - startTime < 5000)) {
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      if (searchInProgress) {
+        console.warn('[TabSearch] Search in progress timed out during popup close, forcing cleanup.');
+        searchInProgress = false;
+      }
+
+      // Sleep for 250ms to allow any pending tab updates to complete
+      // Firefox seems to need a small delay here in case new tab is activated
+      await new Promise(resolve => setTimeout(resolve, POPUP_CLOSE_GRACE_MS));
+
+      // Check if there was a recent tab activation (within last 500ms)
+      // This handles race conditions where onActivated might fire before or after popup-closed
+      const now = Date.now();
+      const wasRecentActivation = recentTabActivation && 
+                                  (now - recentTabActivation.timestamp) < RECENT_ACTIVATION_WINDOW_MS;
+      
+      if (wasRecentActivation) {
+        console.log('[TabSearch] Recent tab activation detected:', recentTabActivation.tabId);
+      } else {
+        console.log('[TabSearch] No recent tab activation, user likely clicked away');
+      }
+      
+      try {
+        await restoreTabsToInitialState(wasRecentActivation ? recentTabActivation : null);
+
+        // Select all matching tabs if option is enabled
+        const items = await browser.storage.local.get(["selectMatchingTabs", "tstSupport", "tstAutoExpand"]);
+        // Check if the feature is enabled and if there are any tabs from the last match
+        if (items.selectMatchingTabs && lastMatchedTabIds && lastMatchedTabIds.length > 0) {
+          const allWindows = await browser.windows.getAll({ populate: false }); // Get all windows
+
+          for (const window of allWindows) {
+            const targetWindowId = window.id;
+            const allTabsInWindow = await browser.tabs.query({ windowId: targetWindowId });
+            const matchedTabsInWindow = allTabsInWindow.filter(tab => lastMatchedTabIds.includes(tab.id));
+
+            // Only proceed if this specific window has matched tabs
+            if (matchedTabsInWindow.length > 0) {
+              let activeTabInWindow = matchedTabsInWindow.find(tab => tab.active);
+
+              if (!activeTabInWindow) {
+                // If none of the matched tabs in this window are active,
+                // pick the first matched tab and make it active.
+                activeTabInWindow = matchedTabsInWindow[0];
+                // The activeTabInWindow is guaranteed to exist here because matchedTabsInWindow.length > 0
+                await browser.tabs.update(activeTabInWindow.id, { active: true });
+              }
+
+              // Highlight all matched tabs in this window if there's more than one.
+              // Highlighting a single tab is effectively just making it active, which is already handled.
+              if (matchedTabsInWindow.length > 1) {
+                await browser.tabs.highlight({
+                  windowId: targetWindowId,
+                  tabs: matchedTabsInWindow.map(tab => tab.index) // Use the tab's index property
+                });
+              }
+
+              // TST auto-expand logic
+              if (items.tstSupport && items.tstAutoExpand && matchedTabsInWindow.length > 0) {
+                try {
+                  // Get the tree structure for this window from TST
+                  const tree = await browser.runtime.sendMessage(TST_ID, {
+                    type: 'get-light-tree',
+                    tabs: '*', // Get the full tree structure for all tabs in this window
+                    window: targetWindowId
+                  });
+                  // For each matched tab, walk up its parent chain and collect all parent tab IDs
+                  const parentIdsToExpand = new Set();
+                  const tabIdToNode = {};
+                  if (tree && Array.isArray(tree)) {
+                    tree.forEach(node => { tabIdToNode[node.id] = node; });
+                    for (const tab of matchedTabsInWindow) {
+                      let current = tabIdToNode[tab.id];
+                      // Use ancestorTabIds if available
+                      const ancestorTabIds = current && Array.isArray(current.ancestorTabIds) ? current.ancestorTabIds : [];
+                      ancestorTabIds.forEach(parentId => {
+                        parentIdsToExpand.add(parentId);
+                      });
+                    }
+                    if (parentIdsToExpand.size > 0) {
+                      await browser.runtime.sendMessage(TST_ID, {
+                        type: 'expand-tree',
+                        window: targetWindowId,
+                        tabs: Array.from(parentIdsToExpand),
+                        recursively: false
+                      });
+                      console.log('[TabSearch][TST] Auto-expanded parent trees:', Array.from(parentIdsToExpand));
+                    } else {
+                      console.log('[TabSearch][TST] No parent trees to expand.');
+                    }
+                  }
+                } catch (e) {
+                  console.warn('[TabSearch][TST] Failed to auto-expand parent trees:', e);
+                }
+              }
+            }
+          }
+          // After handling, clear lastMatchedTabIds so it doesn't persist for next popup
+          lastMatchedTabIds = [];
+        }
+      } catch (e) {
+        console.warn('[TabSearch] Error during popup closed handling:', e);
+      } finally {
+        // Reset all stateful objects to avoid stale data
+        resetSearchTrackingState();
+      }
+    }
+
+    // Ensure intro prompt is marked completed whenever the popup is closed
+    try {
+      await browser.storage.local.set({ hasCompletedIntroPrompt: true });
+    } catch (err) {
+      console.warn('[TabSearch] Error updating hasCompletedIntroPrompt on close:', err);
+    }
+
+    // Trigger backup tab hide if disableEmptyTab is unchecked
+    try {
+      const items = await browser.storage.local.get(['disableEmptyTab']);
+      if (!items.disableEmptyTab) {
+        await triggerInitialTabHide(false);
+      }
+    } catch (err) {
+      console.warn('[TabSearch] Error triggering initial tab hide on popup close:', err);
+    }
+  } finally {
+    setTimeout(() => {
+      popupCloseInProgress = false;
+    }, 500);
+  }
+}
+
+if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onConnect) {
+  browser.runtime.onConnect.addListener((port) => {
+    if (port.name === 'popup-lifecycle') {
+      port.onDisconnect.addListener(async () => {
+        try {
+          await handlePopupClosed();
+        } catch (err) {
+          console.warn('[TabSearch] Error handling popup lifecycle disconnect:', err);
+        }
+      });
+    }
+  });
+}
+
 if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onMessage) {
 browser.runtime.onMessage.addListener(async (msg, sender) => {
 
@@ -758,8 +951,8 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     return;
   }
 
-  if (msg.action === 'check-tabhide-permission') {
-    return await verifyTabHidePermission(msg.force || false);
+  if (msg.action === 'trigger-initial-hide' || msg.action === 'check-tabhide-permission') {
+    return await triggerInitialTabHide(msg.force || false);
   }
 
   if (msg.action === 'reset-search-state') {
@@ -787,132 +980,11 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
       return;
     }
     await executeSearch(msg);
-  }  // Listen for popup closed event
+  }
+
+  // Listen for popup closed event
   if (msg.action === 'popup-closed') {
-    pendingSearchMsg = null;
-
-    // Check if virtual dashboard mode is active, skip restoration if so
-    try {
-      const items = await browser.storage.local.get(['virtualDashboard']);
-      if (items.virtualDashboard) {
-        console.log('[TabSearch] popup-closed: Virtual dashboard mode active, skipping tab restoration');
-        resetSearchTrackingState();
-        return;
-      }
-    } catch (e) {
-      console.warn('[TabSearch] Failed to check virtualDashboard setting on popup-closed:', e);
-    }
-
-    // Wait for any active search to complete to avoid racing with restoration
-    const startTime = Date.now();
-    while (searchInProgress && (Date.now() - startTime < 5000)) {
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-    if (searchInProgress) {
-      console.warn('[TabSearch] Search in progress timed out during popup close, forcing cleanup.');
-      searchInProgress = false;
-    }
-
-    // Sleep for 250ms to allow any pending tab updates to complete
-    // Firefox seems to need a small delay here in case new tab is activated
-    await new Promise(resolve => setTimeout(resolve, POPUP_CLOSE_GRACE_MS));
-
-    // Check if there was a recent tab activation (within last 500ms)
-    // This handles race conditions where onActivated might fire before or after popup-closed
-    const now = Date.now();
-    const wasRecentActivation = recentTabActivation && 
-                                (now - recentTabActivation.timestamp) < RECENT_ACTIVATION_WINDOW_MS;
-    
-    if (wasRecentActivation) {
-      console.log('[TabSearch] Recent tab activation detected:', recentTabActivation.tabId);
-    } else {
-      console.log('[TabSearch] No recent tab activation, user likely clicked away');
-    }
-    
-    try {
-      await restoreTabsToInitialState(wasRecentActivation ? recentTabActivation : null);
-
-      // Select all matching tabs if option is enabled
-      const items = await browser.storage.local.get(["selectMatchingTabs", "tstSupport", "tstAutoExpand"]);
-      // Check if the feature is enabled and if there are any tabs from the last match
-      if (items.selectMatchingTabs && lastMatchedTabIds && lastMatchedTabIds.length > 0) {
-        const allWindows = await browser.windows.getAll({ populate: false }); // Get all windows
-
-        for (const window of allWindows) {
-          const targetWindowId = window.id;
-          const allTabsInWindow = await browser.tabs.query({ windowId: targetWindowId });
-          const matchedTabsInWindow = allTabsInWindow.filter(tab => lastMatchedTabIds.includes(tab.id));
-
-          // Only proceed if this specific window has matched tabs
-          if (matchedTabsInWindow.length > 0) {
-            let activeTabInWindow = matchedTabsInWindow.find(tab => tab.active);
-
-            if (!activeTabInWindow) {
-              // If none of the matched tabs in this window are active,
-              // pick the first matched tab and make it active.
-              activeTabInWindow = matchedTabsInWindow[0];
-              // The activeTabInWindow is guaranteed to exist here because matchedTabsInWindow.length > 0
-              await browser.tabs.update(activeTabInWindow.id, { active: true });
-            }
-
-            // Highlight all matched tabs in this window if there's more than one.
-            // Highlighting a single tab is effectively just making it active, which is already handled.
-            if (matchedTabsInWindow.length > 1) {
-              await browser.tabs.highlight({
-                windowId: targetWindowId,
-                tabs: matchedTabsInWindow.map(tab => tab.index) // Use the tab's index property
-              });
-            }
-
-            // TST auto-expand logic
-            if (items.tstSupport && items.tstAutoExpand && matchedTabsInWindow.length > 0) {
-              try {
-                // Get the tree structure for this window from TST
-                const tree = await browser.runtime.sendMessage(TST_ID, {
-                  type: 'get-light-tree',
-                  tabs: '*', // Get the full tree structure for all tabs in this window
-                  window: targetWindowId
-                });
-                // For each matched tab, walk up its parent chain and collect all parent tab IDs
-                const parentIdsToExpand = new Set();
-                const tabIdToNode = {};
-                if (tree && Array.isArray(tree)) {
-                  tree.forEach(node => { tabIdToNode[node.id] = node; });
-                  for (const tab of matchedTabsInWindow) {
-                    let current = tabIdToNode[tab.id];
-                    // Use ancestorTabIds if available
-                    const ancestorTabIds = current && Array.isArray(current.ancestorTabIds) ? current.ancestorTabIds : [];
-                    ancestorTabIds.forEach(parentId => {
-                      parentIdsToExpand.add(parentId);
-                    });
-                  }
-                  if (parentIdsToExpand.size > 0) {
-                    await browser.runtime.sendMessage(TST_ID, {
-                      type: 'expand-tree',
-                      window: targetWindowId,
-                      tabs: Array.from(parentIdsToExpand),
-                      recursively: false
-                    });
-                    console.log('[TabSearch][TST] Auto-expanded parent trees:', Array.from(parentIdsToExpand));
-                  } else {
-                    console.log('[TabSearch][TST] No parent trees to expand.');
-                  }
-                }
-              } catch (e) {
-                console.warn('[TabSearch][TST] Failed to auto-expand parent trees:', e);
-              }
-            }
-          }
-        }
-        // After handling, clear lastMatchedTabIds so it doesn't persist for next popup
-        lastMatchedTabIds = [];
-      }
-    } catch (e) {
-      console.warn('[TabSearch] Error during popup closed handling:', e);
-    } finally {
-      // Reset all stateful objects to avoid stale data
-      resetSearchTrackingState();
-    }
+    await handlePopupClosed();
   }
 });
 
@@ -969,6 +1041,8 @@ browser.windows.onFocusChanged.addListener(async (focusedWindowId) => {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     calculateTabsToHideAndShow,
-    walkTSTTree
+    walkTSTTree,
+    handlePopupClosed,
+    triggerInitialTabHide
   };
 }

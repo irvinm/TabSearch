@@ -127,6 +127,16 @@ document.addEventListener('DOMContentLoaded', function() {
 // Log when popup.html is opened
 console.warn('[TabSearch] popup.html opened at', new Date().toISOString());
 
+// Connect a lifecycle port to ensure popup close is reliably detected by the background script
+// even if asynchronous sendMessage calls in pagehide/unload are cancelled during process teardown
+if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.connect) {
+  try {
+    browser.runtime.connect({ name: 'popup-lifecycle' });
+  } catch (err) {
+    console.warn('[TabSearch] Failed to connect popup lifecycle port:', err);
+  }
+}
+
 let popupCloseMessageSent = false;
 
 /**
@@ -141,7 +151,9 @@ function notifyPopupClosed() {
 
   popupCloseMessageSent = true;
   console.log('[TabSearch] focusout: Sending popup-closed message to background');
-  browser.runtime.sendMessage({ action: 'popup-closed' });
+  if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.sendMessage) {
+    browser.runtime.sendMessage({ action: 'popup-closed' }).catch(() => {});
+  }
 }
 
 // Log document.activeElement on every focus change
@@ -149,19 +161,15 @@ document.addEventListener('focusin', (e) => {
   console.log('[TabSearch] focusin: document.activeElement:', document.activeElement, document.activeElement && document.activeElement.id);
 });
 
-document.addEventListener('focusout', (e) => {
-  console.log('[TabSearch] focusout: document.activeElement:', document.activeElement, document.activeElement && document.activeElement.id);
+// Use pagehide and unload to detect when the popup is closing
+window.addEventListener('pagehide', () => {
+  console.log('[TabSearch] pagehide: popup is closing');
+  notifyPopupClosed();
+});
 
-  const nextFocusedElement = e.relatedTarget;
-  if (nextFocusedElement && document.contains(nextFocusedElement)) {
-    return;
-  }
-
-  setTimeout(() => {
-    if (!document.hasFocus()) {
-      notifyPopupClosed();
-    }
-  }, 0);
+window.addEventListener('unload', () => {
+  console.log('[TabSearch] unload: popup is closing');
+  notifyPopupClosed();
 });
 
 // Handle privacy info button click (must be in external JS due to CSP)
@@ -243,7 +251,7 @@ function saveOptions(options) {
  */
 function loadOptions(callback) {
   if (browser && browser.storage && browser.storage.local) {
-    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen"]).then(callback);
+    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen", "hasCompletedIntroPrompt"]).then(callback);
   }
 }
 
@@ -346,9 +354,13 @@ document.getElementById('search-btn').addEventListener('click', function(e) {
   doSearch();
 });
 
-// Prevent Tab key from changing focus between elements in the popup
+// Prevent Tab key from changing focus between elements in the popup (allow on intro screen)
 window.addEventListener('keydown', function(event) {
   if (event.key === 'Tab') {
+    const introScreen = document.getElementById('intro-screen');
+    if (introScreen && !introScreen.hidden) {
+      return;
+    }
     event.preventDefault();
   }
 });
@@ -485,7 +497,30 @@ window.addEventListener('DOMContentLoaded', function() {
         setTimeout(tryFocusSelect, 0);
       }
     }
-    robustFocusSelect(searchInput);
+
+    const introScreen = document.getElementById('intro-screen');
+    const searchForm = document.getElementById('search-form');
+    const introEnableBtn = document.getElementById('intro-enable-btn');
+
+    if (introEnableBtn) {
+      introEnableBtn.addEventListener('click', function() {
+        browser.storage.local.set({ hasCompletedIntroPrompt: true }).catch(() => {});
+        browser.runtime.sendMessage({ action: 'trigger-initial-hide', force: true }).catch(() => {});
+        window.close();
+      });
+    }
+
+    if (!items.hasCompletedIntroPrompt) {
+      if (introScreen) introScreen.hidden = false;
+      if (searchForm) searchForm.hidden = true;
+      if (introEnableBtn) {
+        introEnableBtn.focus();
+      }
+    } else {
+      if (introScreen) introScreen.hidden = true;
+      if (searchForm) searchForm.hidden = false;
+      robustFocusSelect(searchInput);
+    }
 
     // Real-time search handler (must be inside this block so searchInput is defined)
     let debounceTimer;
@@ -579,8 +614,11 @@ window.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('disable-empty-tab').addEventListener('change', function() {
+    const isChecked = document.getElementById('disable-empty-tab').checked;
     saveAllOptions();
-    checkTabHidePermission(false);
+    if (!isChecked) {
+      browser.runtime.sendMessage({ action: 'trigger-initial-hide' }).catch(() => {});
+    }
   });
 
   document.getElementById('virtual-dashboard').addEventListener('change', function() {
@@ -588,82 +626,6 @@ window.addEventListener('DOMContentLoaded', function() {
     updateSearchButtonState();
     handleOptionChange();
   });
-
-  /**
-   * Verifies whether the extension currently holds the tabHide permission and adjusts the warning banner accordingly.
-   *
-   * @param {boolean} [force=false] - Whether to bypass cached confirmation and re-verify dynamically.
-   * @returns {void}
-   */
-  function checkTabHidePermission(force = false) {
-    const warningBanner = document.getElementById('permission-warning');
-    const grantBtn = document.getElementById('grant-permission-btn');
-    if (!warningBanner || !grantBtn) return;
-
-    browser.storage.local.get(['disableEmptyTab']).then((items) => {
-      if (items.disableEmptyTab && !force) {
-        warningBanner.hidden = true;
-        return;
-      }
-
-      browser.runtime.sendMessage({ action: 'check-tabhide-permission', force: force })
-        .then((isGranted) => {
-          if (isGranted) {
-            warningBanner.hidden = true;
-          } else {
-            // Recheck storage in case it changed
-            browser.storage.local.get(['disableEmptyTab']).then((innerItems) => {
-              if (innerItems.disableEmptyTab && !force) {
-                warningBanner.hidden = true;
-              } else {
-                warningBanner.hidden = false;
-              }
-            });
-          }
-        })
-        .catch((err) => {
-          console.warn('[TabSearch] Failed to check tabHide permission:', err);
-          // Fallback: check storage before showing warning
-          browser.storage.local.get(['disableEmptyTab']).then((innerItems) => {
-            if (innerItems.disableEmptyTab && !force) {
-              warningBanner.hidden = true;
-            } else {
-              warningBanner.hidden = false;
-            }
-          });
-        });
-    });
-  }
-
-  // Bind grant button click
-  const grantBtn = document.getElementById('grant-permission-btn');
-  if (grantBtn) {
-    grantBtn.addEventListener('click', function() {
-      const guidance = document.getElementById('permission-guidance');
-      grantBtn.disabled = true;
-      grantBtn.textContent = 'Checking...';
-      if (guidance) guidance.hidden = false;
-
-      // Force verification which triggers the browser prompt
-      browser.runtime.sendMessage({ action: 'check-tabhide-permission', force: true })
-        .then((isGranted) => {
-          grantBtn.disabled = false;
-          grantBtn.textContent = 'Enable Tab Hiding';
-          if (guidance) guidance.hidden = true;
-
-          if (isGranted) {
-            const warningBanner = document.getElementById('permission-warning');
-            if (warningBanner) warningBanner.hidden = true;
-          }
-        })
-        .catch((err) => {
-          console.warn('[TabSearch] Error during permission verification:', err);
-          grantBtn.disabled = false;
-          grantBtn.textContent = 'Enable Tab Hiding';
-          if (guidance) guidance.hidden = true;
-        });
-    });
-  }
 
   // Listen for storage changes to sync preferences in real-time
   if (typeof browser !== 'undefined' && browser.storage && browser.storage.onChanged) {
@@ -728,9 +690,6 @@ window.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
-
-  // Perform initial check on startup
-  checkTabHidePermission(false);
 });
 
 /**
