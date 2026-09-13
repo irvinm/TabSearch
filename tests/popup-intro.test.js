@@ -209,3 +209,50 @@ test('clicking enable tab hiding button prompts tab-hide, saves hasCompletedIntr
   assert.equal(harness.closeCount(), 1);
   assert.equal(searchForm.hidden, true);
 });
+
+test('clean install defaults: searchUrls and searchTitles enabled, searchContents disabled', async () => {
+  const harness = createPopupTestHarness({});
+  await harness.dispatchDomContentLoaded();
+
+  const searchUrls = harness.getElement('search-urls');
+  const searchTitles = harness.getElement('search-titles');
+  const searchContents = harness.getElement('search-contents');
+
+  assert.equal(searchUrls.checked, true, 'search-urls must default to checked');
+  assert.equal(searchTitles.checked, true, 'search-titles must default to checked');
+  assert.equal(searchContents.checked, false, 'search-contents must default to unchecked');
+  assert.equal(harness.storedData.searchContents, false, 'stored searchContents must be false');
+  assert.equal(harness.storedData.searchUrls, true, 'stored searchUrls must be true');
+  assert.equal(harness.storedData.searchTitles, true, 'stored searchTitles must be true');
+});
+
+test('upgrade scenario: preserves searchContents: true if user had previously enabled it', async () => {
+  const harness = createPopupTestHarness({
+    hasCompletedIntroPrompt: true,
+    searchUrls: true,
+    searchTitles: true,
+    searchContents: true,
+    realtimeSearch: true
+  });
+  await harness.dispatchDomContentLoaded();
+
+  const searchContents = harness.getElement('search-contents');
+  assert.equal(searchContents.checked, true, 'searchContents must remain true for upgrading users who enabled it');
+  assert.equal(harness.storedData.searchContents, true);
+});
+
+test('upgrade scenario: preserves user choices when upgrading', async () => {
+  const harness = createPopupTestHarness({
+    hasCompletedIntroPrompt: true,
+    searchUrls: false,
+    searchTitles: true,
+    searchContents: false,
+    realtimeSearch: false
+  });
+  await harness.dispatchDomContentLoaded();
+
+  assert.equal(harness.getElement('search-urls').checked, false);
+  assert.equal(harness.getElement('search-titles').checked, true);
+  assert.equal(harness.getElement('search-contents').checked, false);
+  assert.equal(harness.getElement('realtime-search').checked, false);
+});
