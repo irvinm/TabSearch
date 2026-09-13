@@ -75,7 +75,9 @@
 - Search URLs
 - Search tab titles
 - Search contents of loaded tabs
+- Virtual search results dashboard
 - Real-time search
+- Fuzzy matching (titles & URLs)
 - Support for Tree Style Tab (TST)
 - Auto-expand trees with matched tabs
 
