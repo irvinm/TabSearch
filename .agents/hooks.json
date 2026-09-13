@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c e:\\OneDrive\\Documents\\GitHub\\TabSearch\\.agents\\lint.bat",
+            "command": "cmd /c .agents\\lint.bat",
             "timeout": 25
           }
         ]

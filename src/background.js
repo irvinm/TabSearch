@@ -189,11 +189,21 @@ function verifyTabHidePermission(force = false) {
   });
 }
 
-// Note: tabHide permission verification is triggered on first popup open, not on startup.
 // On addon startup, attempt tab hide to trigger the Firefox permission prompt unless disabled by user
-verifyTabHidePermission(false).catch(err => {
-  console.warn('[TabSearch] Startup tabHide check error:', err);
-});
+// Gate startup verification on virtualDashboard setting: skip if virtual dashboard mode is active
+if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+  browser.storage.local.get(['virtualDashboard']).then((items) => {
+    if (!items.virtualDashboard) {
+      verifyTabHidePermission(false).catch(err => {
+        console.warn('[TabSearch] Startup tabHide check error:', err);
+      });
+    } else {
+      console.log('[TabSearch] Startup tabHide check skipped (virtual dashboard mode enabled).');
+    }
+  }).catch((err) => {
+    console.warn('[TabSearch] Failed to check virtualDashboard setting at startup:', err);
+  });
+}
 
 let progressInterval = null;
 let tabsToProcess = 0;
@@ -201,6 +211,7 @@ let searchInProgress = false;
 let pendingSearchMsg = null;
 let lastMatchedTabIds = [];
 let dashboardTabId = null; // Singleton tab ID for the virtual dashboard
+let isActivatingTab = false; // Flag to prevent window focus changes from tearing down dashboard prematurely
 let originalTSTTreeStructureByWindow = {};     // Store the original TST tree structure for restoring after search, per window
 let originalTSTTreeSnapshotTaken = false; // overall flag
 
@@ -675,8 +686,14 @@ async function handleOpenDashboard(query) {
   
   // Fallback: search for existing results tab by URL
   try {
+    const dashboardBaseUrl = browser.runtime.getURL('search-results.html');
     const tabs = await browser.tabs.query({});
-    const existingTab = tabs.find(t => t.url && t.url.includes('search-results.html'));
+    const existingTab = tabs.find(t => {
+      if (!t.url) return false;
+      return t.url === dashboardBaseUrl ||
+             t.url.startsWith(dashboardBaseUrl + '?') ||
+             t.url.startsWith(dashboardBaseUrl + '#');
+    });
     if (existingTab) {
       dashboardTabId = existingTab.id;
       try {
@@ -709,6 +726,30 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
   if (msg.action === 'open-dashboard') {
     await handleOpenDashboard(msg.query);
+    return;
+  }
+
+  if (msg.action === 'activate-tab') {
+    isActivatingTab = true;
+    try {
+      if (msg.windowId) {
+        await browser.windows.update(msg.windowId, { focused: true });
+      }
+      if (msg.tabId) {
+        await browser.tabs.update(msg.tabId, { active: true });
+      }
+      if (msg.closeDashboard && dashboardTabId !== null) {
+        await browser.tabs.remove(dashboardTabId).catch(() => {});
+        dashboardTabId = null;
+      }
+    } catch (e) {
+      console.warn('[TabSearch] Failed to activate tab from background:', e);
+    } finally {
+      // Allow focus change events to process normally after activation settles
+      setTimeout(() => {
+        isActivatingTab = false;
+      }, 300);
+    }
     return;
   }
 
@@ -886,9 +927,9 @@ browser.tabs.onActivated.addListener((activeInfo) => {
   console.log('[TabSearch] Tab activated:', activeInfo.tabId, 'in window', activeInfo.windowId);
 
   // Close dashboard if user clicks off onto another tab and keepDashboardOpen is disabled
-  if (dashboardTabId !== null && activeInfo.tabId !== dashboardTabId) {
+  if (!isActivatingTab && dashboardTabId !== null && activeInfo.tabId !== dashboardTabId) {
     browser.storage.local.get(['keepDashboardOpen']).then((items) => {
-      if (!items.keepDashboardOpen && dashboardTabId !== null) {
+      if (!items.keepDashboardOpen && !isActivatingTab && dashboardTabId !== null) {
         browser.tabs.remove(dashboardTabId).catch(() => {});
         dashboardTabId = null;
       }
@@ -907,12 +948,12 @@ browser.tabs.onRemoved.addListener((tabId) => {
 
 // Close dashboard if the user focuses a different browser window and keepDashboardOpen is disabled
 browser.windows.onFocusChanged.addListener(async (focusedWindowId) => {
-  if (dashboardTabId !== null && focusedWindowId !== browser.windows.WINDOW_ID_NONE) {
+  if (!isActivatingTab && dashboardTabId !== null && focusedWindowId !== browser.windows.WINDOW_ID_NONE) {
     try {
       const tab = await browser.tabs.get(dashboardTabId);
       if (tab && tab.windowId !== focusedWindowId) {
         const items = await browser.storage.local.get(['keepDashboardOpen']);
-        if (!items.keepDashboardOpen && dashboardTabId !== null) {
+        if (!items.keepDashboardOpen && !isActivatingTab && dashboardTabId !== null) {
           await browser.tabs.remove(dashboardTabId);
           dashboardTabId = null;
         }

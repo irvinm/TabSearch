@@ -98,6 +98,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (!isNaN(winId)) {
         collapsedWindows.add(winId);
       }
+      const header = section.querySelector('.window-header');
+      if (header) {
+        header.setAttribute('aria-expanded', 'false');
+      }
     });
     saveCollapsedWindows();
     rebuildFlatResults();
@@ -111,6 +115,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       const winId = parseInt(section.dataset.windowId);
       if (!isNaN(winId)) {
         collapsedWindows.delete(winId);
+      }
+      const header = section.querySelector('.window-header');
+      if (header) {
+        header.setAttribute('aria-expanded', 'true');
       }
     });
     saveCollapsedWindows();
@@ -608,12 +616,19 @@ function renderResults(activeWindowId) {
     section.dataset.windowId = windowId;
 
     if (collapsedWindows.has(windowId)) {
+    const isCollapsed = collapsedWindows.has(windowId);
+    if (isCollapsed) {
       section.classList.add('collapsed');
     }
 
     // Window header
+    // Window header (accessible button behavior)
     const header = document.createElement('div');
     header.className = 'window-header';
+    header.setAttribute('role', 'button');
+    header.setAttribute('tabindex', '0');
+    header.setAttribute('aria-expanded', String(!isCollapsed));
+    header.setAttribute('aria-label', `Window ${index + 1}: ${matchCount} of ${totalCount} tabs. Toggle to collapse or expand.`);
 
     const titleSpan = document.createElement('span');
     titleSpan.className = 'window-title';
@@ -639,8 +654,32 @@ function renderResults(activeWindowId) {
         rebuildFlatResults();
         updateHighlightUI();
       });
+    const toggleCollapse = () => {
+      if (collapsedWindows.has(windowId)) {
+        collapsedWindows.delete(windowId);
+        section.classList.remove('collapsed');
+        header.setAttribute('aria-expanded', 'true');
+      } else {
+        collapsedWindows.add(windowId);
+        section.classList.add('collapsed');
+        header.setAttribute('aria-expanded', 'false');
+      }
+      saveCollapsedWindows();
+      rebuildFlatResults();
+      updateHighlightUI();
+    };
 
       section.appendChild(header);
+    // Click and keyboard toggle listeners
+    header.addEventListener('click', toggleCollapse);
+    header.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    });
+
+    section.appendChild(header);
 
       // Create tab list
       const tabListDiv = document.createElement('div');
@@ -754,6 +793,17 @@ async function activateTab(tab) {
 
   try {
     // 1. Focus parent window
+    if (browser.runtime && browser.runtime.sendMessage) {
+      await browser.runtime.sendMessage({
+        action: 'activate-tab',
+        tabId: tab.id,
+        windowId: tab.windowId,
+        closeDashboard: !keepDashboardOpen
+      });
+      return;
+    }
+
+    // Fallback if runtime messaging is unavailable
     await browser.windows.update(tab.windowId, { focused: true });
     // 2. Activate tab
     await browser.tabs.update(tab.id, { active: true });
