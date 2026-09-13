@@ -207,6 +207,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 /**
  * Load options from browser storage
+ * Asynchronously loads search options and collapsed window states from browser storage.
+ *
+ * @returns {Promise<void>} Resolves when options and collapsed windows are loaded.
  */
 async function loadStoredOptions() {
   if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
@@ -236,6 +239,11 @@ async function loadStoredOptions() {
   }
 }
 
+/**
+ * Persists the set of collapsed window IDs into extension local storage.
+ *
+ * @returns {void}
+ */
 function saveCollapsedWindows() {
   if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
     browser.storage.local.set({ collapsedWindows: Array.from(collapsedWindows) })
@@ -249,6 +257,10 @@ let searchDebounceTimer = null;
 
 /**
  * Schedule search with debounce to prevent overlapping runs on rapid tab events
+ * Schedules search execution with debounce delay to prevent overlapping runs on rapid tab events.
+ *
+ * @param {number} [delay=100] - Debounce delay in milliseconds.
+ * @returns {void}
  */
 function scheduleSearch(delay = 100) {
   clearTimeout(searchDebounceTimer);
@@ -259,6 +271,18 @@ function scheduleSearch(delay = 100) {
 
 /**
  * Perform search filtering and trigger DOM render
+ * Filters open tabs based on the search query, active search scopes, and fuzzy search options.
+ *
+ * @param {Array<browser.tabs.Tab>} tabsList - Complete list of candidate tabs.
+ * @param {string} query - The search query term.
+ * @param {Object} [options={}] - Search configuration options.
+ * @param {boolean} [options.searchUrls=true] - Whether to match against tab URLs.
+ * @param {boolean} [options.searchTitles=true] - Whether to match against tab titles.
+ * @param {boolean} [options.searchContents=false] - Whether page content search is enabled.
+ * @param {boolean} [options.fuzzySearch=false] - Whether to use fuzzy approximate search.
+ * @param {number} [options.fuzzyThreshold=0.35] - Fuzzy search match threshold (0.0 to 1.0).
+ * @param {typeof import('fuse.js')|null} [FuseClass=null] - Optional injected Fuse class constructor.
+ * @returns {Array<browser.tabs.Tab>} Array of tabs that match the search criteria.
  */
 
 /**
@@ -312,7 +336,13 @@ function filterMatchingTabs(tabsList, query, options = {}, FuseClass = null) {
 
 /**
  * Group matched tabs by window ID and order windows with activeWindowId first,
+ * Groups matched tabs by window ID and orders window IDs with activeWindowId first,
  * followed by remaining windows in ascending numeric ID order.
+ *
+ * @param {Array<browser.tabs.Tab>} allTabsList - All open tabs across all browser windows.
+ * @param {Array<browser.tabs.Tab>} matchedTabsList - Tabs matching the search query.
+ * @param {number|null} activeWindowId - Window ID of the currently focused browser window.
+ * @returns {{groups: Object.<number, Array<browser.tabs.Tab>>, windowIds: Array<number>, totalTabsPerWindow: Object.<number, number>}} Window groupings and metadata.
  */
 function groupAndSortWindows(allTabsList, matchedTabsList, activeWindowId) {
   const totalTabsPerWindow = {};
@@ -342,7 +372,13 @@ function groupAndSortWindows(allTabsList, matchedTabsList, activeWindowId) {
 
 /**
  * Rebuild the flat keyboard navigation list from the latest render,
+ * Rebuilds the flat keyboard navigation list from the latest render,
  * skipping tabs inside collapsed window sections (FR-010).
+ *
+ * @param {Array<number>} renderedWindowIds - Window IDs in displayed order.
+ * @param {Object.<number, Array<browser.tabs.Tab>>} renderedGroups - Map of window ID to tab results.
+ * @param {Set<number>|Array<number>} collapsedWindows - Set or array of currently collapsed window IDs.
+ * @returns {Array<browser.tabs.Tab>} Flat ordered array of visible, navigable tab items.
  */
 function buildFlatNavigationList(renderedWindowIds, renderedGroups, collapsedWindows) {
   const flat = [];
@@ -358,6 +394,12 @@ function buildFlatNavigationList(renderedWindowIds, renderedGroups, collapsedWin
 
 /**
  * Calculate next highlight index for keyboard navigation, wrapping at boundaries.
+ * Calculates the next highlight index for keyboard navigation, wrapping around at list boundaries.
+ *
+ * @param {number} currentIndex - Current focused index (-1 if none focused).
+ * @param {number} totalCount - Total number of navigable items.
+ * @param {number} direction - Navigation direction (+1 for down/forward, -1 for up/backward).
+ * @returns {number} Next index to highlight, or -1 if the list is empty.
  */
 function navigateHighlightIndex(currentIndex, totalCount, direction) {
   if (!totalCount || totalCount <= 0) return -1;
@@ -376,6 +418,11 @@ function navigateHighlightIndex(currentIndex, totalCount, direction) {
 
 /**
  * Remove stale/closed window IDs from the collapsedWindows set.
+ * Removes stale or closed window IDs from the collapsedWindows set.
+ *
+ * @param {Set<number>} collapsedWindows - Set of collapsed window IDs.
+ * @param {Set<number>|Array<number>} currentWindowIds - Currently open window IDs.
+ * @returns {boolean} True if any stale window IDs were removed, false otherwise.
  */
 function cleanStaleCollapsedWindows(collapsedWindows, currentWindowIds) {
   if (!collapsedWindows) return false;
@@ -392,6 +439,11 @@ function cleanStaleCollapsedWindows(collapsedWindows, currentWindowIds) {
   return hasStale;
 }
 
+/**
+ * Executes a tab search across all browser windows and triggers DOM rendering.
+ *
+ * @returns {Promise<void>} Resolves when the search and render operations are finished.
+ */
 async function performSearch() {
   if (typeof browser === 'undefined' || !browser.tabs) return;
 
@@ -466,7 +518,10 @@ async function performSearch() {
 
 /**
  * Rebuild the flat keyboard navigation list from the latest render,
+ * Rebuilds the flat keyboard navigation list from the latest render,
  * skipping tabs inside collapsed window sections (FR-010).
+ *
+ * @returns {void}
  */
 function rebuildFlatResults() {
   flatResults = buildFlatNavigationList(renderedWindowIds, renderedGroups, collapsedWindows);
@@ -477,6 +532,10 @@ function rebuildFlatResults() {
 
 /**
  * Determine appropriate favicon URL for a tab, using native Firefox icons for protected/internal pages
+ * Determines the appropriate favicon URL for a tab, using native Firefox SVGs for internal or protected pages.
+ *
+ * @param {browser.tabs.Tab|null} tab - The tab object to inspect.
+ * @returns {string} Path or URL to the appropriate favicon image.
  */
 function getTabFaviconUrl(tab) {
   if (!tab) return 'images/firefox.svg';
@@ -525,6 +584,10 @@ function getTabFaviconUrl(tab) {
 
 /**
  * Render grouped results list to DOM
+ * Renders grouped tab search results into the dashboard DOM container.
+ *
+ * @param {number|null} activeWindowId - Window ID of the active browser window.
+ * @returns {void}
  */
 function renderResults(activeWindowId) {
   const container = document.getElementById('results-container');
@@ -541,18 +604,30 @@ function renderResults(activeWindowId) {
   }
 
     const { groups, windowIds, totalTabsPerWindow } = groupAndSortWindows(allTabs, matchedTabs, activeWindowId);
+  const { groups, windowIds, totalTabsPerWindow } = groupAndSortWindows(allTabs, matchedTabs, activeWindowId);
 
   if (cleanStaleCollapsedWindows(collapsedWindows, windowIds)) {
+  // Clean any collapsed window IDs that no longer exist
+  const staleRemoved = cleanStaleCollapsedWindows(collapsedWindows, windowIds);
+  if (staleRemoved) {
     saveCollapsedWindows();
   }
 
   // Reset keyboard focusedIndex to -1 (no highlight by default)
   focusedIndex = -1;
+  windowIds.forEach((windowId, index) => {
+    const tabsInWindow = groups[windowId] || [];
+    const totalCount = totalTabsPerWindow[windowId] || 0;
+    const matchCount = tabsInWindow.length;
 
   windowIds.forEach((windowId, winIndex) => {
       const tabsInWindow = groups[windowId] || [];
       const isCurrentActiveWin = windowId === activeWindowId;
       const totalTabsCount = totalTabsPerWindow[windowId] || 0;
+    // Window section container
+    const section = document.createElement('div');
+    section.className = 'window-section';
+    section.dataset.windowId = windowId;
 
       // Create window section element
       const section = document.createElement('div');
@@ -561,6 +636,9 @@ function renderResults(activeWindowId) {
       if (collapsedWindows.has(windowId)) {
         section.classList.add('collapsed');
       }
+    if (collapsedWindows.has(windowId)) {
+      section.classList.add('collapsed');
+    }
 
       // Create header
       const header = document.createElement('div');
@@ -580,13 +658,25 @@ function renderResults(activeWindowId) {
       badge.textContent = `${tabsInWindow.length} \\ ${totalTabsCount} tabs`;
       
       titleSpan.appendChild(badge);
+    // Window header
+    const header = document.createElement('div');
+    header.className = 'window-header';
 
       const toggleIcon = document.createElement('span');
       toggleIcon.className = 'window-toggle-icon';
       toggleIcon.textContent = '▼';
+    const titleSpan = document.createElement('span');
+    titleSpan.className = 'window-title';
+    titleSpan.textContent = `Window ${index + 1} (${matchCount} / ${totalCount} tabs)`;
 
       header.appendChild(titleSpan);
       header.appendChild(toggleIcon);
+    const toggleIcon = document.createElement('span');
+    toggleIcon.className = 'window-toggle';
+    toggleIcon.textContent = '▼';
+
+    header.appendChild(titleSpan);
+    header.appendChild(toggleIcon);
 
       // Toggle collapse click listener
       header.addEventListener('click', () => {
@@ -675,6 +765,10 @@ function renderResults(activeWindowId) {
 
 /**
  * Navigate focused highlight through list
+ * Moves the keyboard highlight cursor through the visible tab list.
+ *
+ * @param {number} direction - Direction to navigate (+1 for down, -1 for up).
+ * @returns {void}
  */
 function navigateHighlight(direction) {
   if (flatResults.length === 0) return;
@@ -686,6 +780,9 @@ function navigateHighlight(direction) {
 
 /**
  * Update DOM highlight classes and scroll focused item into view
+ * Updates DOM highlight classes and scrolls the focused item into view.
+ *
+ * @returns {void}
  */
 function updateHighlightUI() {
   const items = document.querySelectorAll('.window-section:not(.collapsed) .tab-result-item');
@@ -702,6 +799,10 @@ function updateHighlightUI() {
 
 /**
  * Focus the target window, activate the tab, and close dashboard if needed
+ * Focuses the target window, activates the specified tab, and closes the dashboard if configured.
+ *
+ * @param {browser.tabs.Tab} tab - The tab to activate.
+ * @returns {Promise<void>} Resolves once the window and tab have been focused.
  */
 async function activateTab(tab) {
   if (typeof browser === 'undefined') return;

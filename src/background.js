@@ -45,6 +45,11 @@ const TST_REGISTER_MESSAGE = {
 const POPUP_CLOSE_GRACE_MS = 250; // grace period after popup closed
 const RECENT_ACTIVATION_WINDOW_MS = 500; // window to consider a tab activation recent
 
+/**
+ * Registers TabSearch as an external listener/integrator with Tree Style Tab (TST).
+ *
+ * @returns {void}
+ */
 function registerWithTST() {
   if (tstRegistered) return;
   if (!browser || !browser.runtime || !browser.runtime.sendMessage) return;
@@ -58,6 +63,12 @@ function registerWithTST() {
     });
 }
 
+/**
+ * Adds the 'flattened' visual state to specified tab(s) via TST runtime messaging.
+ *
+ * @param {number|Array<number>} tabId - Single tab ID or array of tab IDs to flatten.
+ * @returns {void}
+ */
 function addFlattenedState(tabId) {
   // Support both single tabId and array of tabIds
   const tabIds = Array.isArray(tabId) ? tabId : [tabId];
@@ -72,6 +83,12 @@ function addFlattenedState(tabId) {
   });
 }
 
+/**
+ * Removes the 'flattened' visual state from specified tab(s) via TST runtime messaging.
+ *
+ * @param {number|Array<number>} tabId - Single tab ID or array of tab IDs to un-flatten.
+ * @returns {void}
+ */
 function removeFlattenedState(tabId) {
   // Support both single tabId and array of tabIds
   const tabIds = Array.isArray(tabId) ? tabId : [tabId];
@@ -87,6 +104,12 @@ function removeFlattenedState(tabId) {
   flattenedStateAppliedThisSearch = false;
 }
 
+/**
+ * Verifies whether tab hiding is permitted by attempting a transient hide/show on a test tab.
+ *
+ * @param {boolean} [force=false] - Whether to bypass cached permission confirmation.
+ * @returns {Promise<boolean>} Resolves to true if tab hiding is confirmed functional.
+ */
 function verifyTabHidePermission(force = false) {
   if (
     typeof browser === 'undefined' || 
@@ -190,11 +213,23 @@ let collapsedParents = {};
 let children = {};
 let recentTabActivation = null;  // Track recent tab activations with timestamp
 
+/**
+ * Updates the extension badge text and background color to reflect hidden tab counts.
+ *
+ * @param {number} count - Number of hidden tabs (0 clears badge).
+ * @returns {void}
+ */
 function updateBadge(count) {
   browser.action.setBadgeText({ text: count > 0 ? String(count) : '' });
   browser.action.setBadgeBackgroundColor({ color: '#2366d1' });
 }
 
+/**
+ * Starts a recurring progress indicator polling getCountFn to dynamically update the badge text.
+ *
+ * @param {function(): Promise<number>} getCountFn - Asynchronous function returning remaining tab count.
+ * @returns {void}
+ */
 function startProgressIndicator(getCountFn) {
   if (progressInterval) clearInterval(progressInterval);
   progressInterval = setInterval(async () => {
@@ -208,6 +243,12 @@ function startProgressIndicator(getCountFn) {
   }, 500); // Update 2 times a second
 }
 
+/**
+ * Restores all tabs to their unhidden state and restores TST tree structures and tab flattening.
+ *
+ * @param {number|null} [recentActivationToPreserve=null] - Optional tab ID of a recently activated tab to preserve.
+ * @returns {Promise<void>} Resolves when tabs and TST tree states are restored.
+ */
 async function restoreTabsToInitialState(recentActivationToPreserve = null) {
   const allTabs = await browser.tabs.query({});
 
@@ -323,6 +364,11 @@ async function restoreTabsToInitialState(recentActivationToPreserve = null) {
   }
 }
 
+/**
+ * Resets all in-memory search tracking, TST snapshot structures, and mutex flags.
+ *
+ * @returns {void}
+ */
 function resetSearchTrackingState() {
   parents = {};
   children = {};
@@ -339,8 +385,13 @@ function resetSearchTrackingState() {
 
 /**
  * Calculate toHide and toShow tab ID arrays while strictly enforcing Firefox tabHide safety rules:
+ * Calculates toHide and toShow tab ID arrays while strictly enforcing Firefox tabHide safety rules:
  * - Active tabs (tab.active === true) MUST NEVER be hidden.
  * - Pinned tabs (tab.pinned === true) MUST NEVER be hidden.
+ *
+ * @param {Array<browser.tabs.Tab>} allTabs - Complete array of tab objects to evaluate.
+ * @param {Array<number>} matchedTabIds - Array of tab IDs that matched search criteria.
+ * @returns {{toHide: Array<number>, toShow: Array<number>}} Object containing arrays of tab IDs to hide and show.
  */
 function calculateTabsToHideAndShow(allTabs, matchedTabIds) {
   const matchedSet = new Set(matchedTabIds || []);
@@ -361,7 +412,14 @@ function calculateTabsToHideAndShow(allTabs, matchedTabIds) {
 
 /**
  * Recursively traverse a Tree Style Tab (TST) node tree, identifying parents, leaf children,
+ * Recursively traverses a Tree Style Tab (TST) node tree, identifying parents, leaf children,
  * and collapsed subtrees at any nesting depth.
+ *
+ * @param {Array<Object>} nodes - Array of TST tree node objects.
+ * @param {Array<Object>} [parentsList=[]] - Accumulator array for parent nodes.
+ * @param {Array<Object>} [childrenList=[]] - Accumulator array for leaf children.
+ * @param {Array<Object>} [collapsedParentsList=[]] - Accumulator array for collapsed parent nodes.
+ * @returns {{parents: Array<Object>, children: Array<Object>, collapsedParents: Array<Object>}} Flattened and categorized nodes.
  */
 function walkTSTTree(nodes, parentsList = [], childrenList = [], collapsedParentsList = []) {
   if (!nodes || !Array.isArray(nodes)) {
@@ -381,6 +439,12 @@ function walkTSTTree(nodes, parentsList = [], childrenList = [], collapsedParent
   return { parents: parentsList, children: childrenList, collapsedParents: collapsedParentsList };
 }
 
+/**
+ * Core search processor that executes tab searches, updates TST trees, hides/shows tabs, and selects matching tabs.
+ *
+ * @param {Object} msg - The search-tabs message payload.
+ * @returns {Promise<void>} Resolves when search execution and tab state adjustments complete.
+ */
 async function executeSearch(msg) {
   let currentMsg = msg;
   while (currentMsg) {
@@ -586,6 +650,12 @@ async function executeSearch(msg) {
     pendingSearchMsg = null;
   }
 }
+/**
+ * Handles opening or focusing the singleton Virtual Results Dashboard tab.
+ *
+ * @param {string} query - The search query term to seed into the dashboard.
+ * @returns {Promise<void>} Resolves when the dashboard tab is created, updated, or focused.
+ */
 async function handleOpenDashboard(query) {
   const url = browser.runtime.getURL('search-results.html') + '?q=' + encodeURIComponent(query || '');
   

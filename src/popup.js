@@ -1,4 +1,9 @@
 // --- Monitor and React to All Option Changes ---
+/**
+ * Resets the search input and instructs the background script to restore the pre-search tab visibility state.
+ *
+ * @returns {void}
+ */
 function handleOptionChange() {
   // Reset the search input field
   document.getElementById('search').value = '';
@@ -23,6 +28,11 @@ function handleOptionChange() {
 }
 
 // Audio search button handler
+/**
+ * Displays a non-intrusive modal overlay notifying the user that no tabs are actively playing audio.
+ *
+ * @returns {void}
+ */
 function showNoAudioTabsMessage() {
   // Create overlay
   let overlay = document.createElement('div');
@@ -71,6 +81,11 @@ function showNoAudioTabsMessage() {
   document.body.appendChild(overlay);
 }
 
+/**
+ * Searches for all tabs playing audio and either focuses the single audible tab or hides non-audible tabs.
+ *
+ * @returns {void}
+ */
 function searchAudioTabs() {
   if (!browser || !browser.tabs) return;
   browser.tabs.query({ audible: true })
@@ -116,6 +131,11 @@ console.warn('[TabSearch] popup.html opened at', new Date().toISOString());
 
 let popupCloseMessageSent = false;
 
+/**
+ * Notifies the background script that the popup has closed or lost focus.
+ *
+ * @returns {void}
+ */
 function notifyPopupClosed() {
   if (popupCloseMessageSent) {
     return;
@@ -148,6 +168,12 @@ document.addEventListener('focusout', (e) => {
 
 // Handle privacy info button click (must be in external JS due to CSP)
 document.addEventListener('DOMContentLoaded', function() {
+  /**
+   * Resets tab filtering and opens a specified informational documentation page in a new active tab.
+   *
+   * @param {string} pageName - HTML filename of the documentation page to open.
+   * @returns {Promise<void>} Resolves once the tab is created.
+   */
   async function openInfoTab(pageName) {
     // Keep info pages out of an in-progress filtered state without re-highlighting tabs.
     const searchInput = document.getElementById('search');
@@ -194,6 +220,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // Utility to get and set options in storage
 
+/**
+ * Persists an object of configuration options into extension local storage.
+ *
+ * @param {Object.<string, any>} options - Key-value map of preferences to save.
+ * @returns {void}
+ */
 function saveOptions(options) {
   console.log('[TabSearch] Saving options:', options);
 
@@ -205,12 +237,23 @@ function saveOptions(options) {
   }
 }
 
+/**
+ * Loads extension options from browser local storage and invokes the provided callback.
+ *
+ * @param {function(Object.<string, any>): void} callback - Callback receiving loaded options.
+ * @returns {void}
+ */
 function loadOptions(callback) {
   if (browser && browser.storage && browser.storage.local) {
     browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen"]).then(callback);
   }
 }
 
+/**
+ * Updates disabled/enabled DOM state and styles for options incompatible with Virtual Dashboard mode.
+ *
+ * @returns {void}
+ */
 function updateDisabledOptionsState() {
   const virtualDashboard = document.getElementById('virtual-dashboard').checked;
   const tstSupportInput = document.getElementById('tst-support');
@@ -258,6 +301,11 @@ function updateDisabledOptionsState() {
   }
 }
 
+/**
+ * Updates search button enabled state and search input disabled state based on active configuration.
+ *
+ * @returns {void}
+ */
 function updateSearchButtonState() {
   const searchBtn = document.getElementById('search-btn');
   const searchInput = document.getElementById('search');
@@ -458,6 +506,11 @@ window.addEventListener('DOMContentLoaded', function() {
   }
   });
 
+  /**
+   * Reads all current option control states from the popup DOM and persists them into storage.
+   *
+   * @returns {void}
+   */
   function saveAllOptions() {
     saveOptions({
       searchUrls: document.getElementById('search-urls').checked,
@@ -539,6 +592,12 @@ window.addEventListener('DOMContentLoaded', function() {
   });
 
   // Check tabHide permission status
+  /**
+   * Verifies whether the extension currently holds the tabHide permission and adjusts the warning banner accordingly.
+   *
+   * @param {boolean} [force=false] - Whether to bypass cached confirmation and re-verify dynamically.
+   * @returns {void}
+   */
   function checkTabHidePermission(force = false) {
     const warningBanner = document.getElementById('permission-warning');
     const grantBtn = document.getElementById('grant-permission-btn');
@@ -677,6 +736,11 @@ window.addEventListener('DOMContentLoaded', function() {
   checkTabHidePermission(false);
 });
 
+/**
+ * Gathers user input and active search scopes to dispatch search-tabs or open-dashboard messages.
+ *
+ * @returns {void}
+ */
 function doSearch() {
   const term = document.getElementById('search').value.trim();
   const searchUrls = document.getElementById('search-urls').checked;
