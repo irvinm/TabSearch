@@ -57,3 +57,25 @@ test('navigateHighlightIndex - returns -1 when list is empty', () => {
   assert.equal(navigateHighlightIndex(-1, 0, 1), -1);
   assert.equal(navigateHighlightIndex(0, 0, 1), -1);
 });
+
+test('buildFlatNavigationList - accepts persisted collapsed windows as an array', () => {
+  const groups = {
+    1: [{ id: 10 }],
+    2: [{ id: 20 }, { id: 21 }]
+  };
+
+  const flat = buildFlatNavigationList([2, 1], groups, [2]);
+
+  assert.deepEqual(flat.map(tab => tab.id), [10]);
+});
+
+test('buildFlatNavigationList - skips missing groups and preserves rendered order', () => {
+  const groups = {
+    2: [{ id: 20 }, { id: 21 }],
+    5: [{ id: 50 }]
+  };
+
+  const flat = buildFlatNavigationList([5, 3, 2], groups, new Set());
+
+  assert.deepEqual(flat.map(tab => tab.id), [50, 20, 21]);
+});

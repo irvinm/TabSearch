@@ -76,3 +76,27 @@ test('calculateTabsToHideAndShow - mixed tab set partitions correctly and safely
   assert.deepEqual(toHide, [3]);
   assert.deepEqual(toShow, [4]);
 });
+
+test('calculateTabsToHideAndShow - hidden active and pinned tabs are restored even when unmatched', () => {
+  const tabs = [
+    { id: 201, active: true, pinned: false, hidden: true },
+    { id: 202, active: false, pinned: true, hidden: true }
+  ];
+
+  const { toHide, toShow } = calculateTabsToHideAndShow(tabs, []);
+
+  assert.deepEqual(toHide, []);
+  assert.deepEqual(toShow, [201, 202]);
+});
+
+test('calculateTabsToHideAndShow - duplicate matches never duplicate output operations', () => {
+  const tabs = [
+    { id: 301, active: false, pinned: false, hidden: true },
+    { id: 302, active: false, pinned: false, hidden: false }
+  ];
+
+  const { toHide, toShow } = calculateTabsToHideAndShow(tabs, [301, 301]);
+
+  assert.deepEqual(toHide, [302]);
+  assert.deepEqual(toShow, [301]);
+});

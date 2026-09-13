@@ -102,3 +102,44 @@ test('filterMatchingTabs - fuzzy matching threshold sensitivity', () => {
   assert.equal(looseResults.length, 1);
   assert.equal(looseResults[0].id, 3);
 });
+
+test('filterMatchingTabs - handles invalid tab collections without throwing', () => {
+  assert.deepEqual(filterMatchingTabs(null, 'github'), []);
+  assert.deepEqual(filterMatchingTabs(undefined, 'github'), []);
+  assert.deepEqual(filterMatchingTabs({ id: 1 }, 'github'), []);
+});
+
+test('filterMatchingTabs - tolerates missing titles and URLs', () => {
+  const tabs = [
+    { id: 1, title: null, url: 'https://example.com/docs' },
+    { id: 2, title: 'Documentation', url: null },
+    { id: 3 }
+  ];
+
+  assert.deepEqual(
+    filterMatchingTabs(tabs, 'docs', { searchUrls: true, searchTitles: false }).map(tab => tab.id),
+    [1]
+  );
+  assert.deepEqual(
+    filterMatchingTabs(tabs, 'documentation', { searchUrls: false, searchTitles: true }).map(tab => tab.id),
+    [2]
+  );
+});
+
+test('filterMatchingTabs - falls back to substring matching when Fuse is unavailable', () => {
+  const options = {
+    searchUrls: true,
+    searchTitles: true,
+    fuzzySearch: true
+  };
+
+  assert.deepEqual(filterMatchingTabs(SAMPLE_TABS, 'githb', options), []);
+  assert.deepEqual(filterMatchingTabs(SAMPLE_TABS, 'github', options).map(tab => tab.id), [1]);
+});
+
+test('filterMatchingTabs - returns a new array for an empty query', () => {
+  const results = filterMatchingTabs(SAMPLE_TABS, '', { searchUrls: true, searchTitles: true });
+
+  assert.deepEqual(results, SAMPLE_TABS);
+  assert.notEqual(results, SAMPLE_TABS);
+});
