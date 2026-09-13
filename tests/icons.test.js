@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const { getTabFaviconUrl } = require('../src/search-results.js');
 
 test('getTabFaviconUrl - null or undefined tab', () => {
@@ -84,4 +86,14 @@ test('getTabFaviconUrl - recognizes TabSearch pages as first-party extension tab
   } finally {
     delete global.browser;
   }
+});
+
+test('search-results.html links to extension icon as favicon', () => {
+  const htmlPath = path.join(__dirname, '..', 'src', 'search-results.html');
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  assert.match(
+    html,
+    /<link\s+[^>]*rel=["']icon["'][^>]*href=["']images\/search32\.png["']/i,
+    'search-results.html must have a link rel="icon" referencing images/search32.png'
+  );
 });
