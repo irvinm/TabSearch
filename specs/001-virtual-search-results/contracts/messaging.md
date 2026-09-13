@@ -27,3 +27,19 @@ This document outlines the message contracts exchanged via `browser.runtime` bet
   }
   ```
 * **Description**: Sent by the background script to the existing dashboard tab to update its search query in real-time without reloading the page.
+
+---
+
+## 3. Activate Tab
+* **Direction**: Dashboard $\rightarrow$ Background
+* **Action**: `activate-tab`
+* **Payload**:
+  ```typescript
+  {
+    action: 'activate-tab',
+    tabId: number,
+    windowId: number,
+    closeDashboard: boolean
+  }
+  ```
+* **Description**: Sent by the dashboard page when a user clicks or selects a search result. The background script restores the parent window (if minimized), focuses the window, activates the target tab, and closes the dashboard tab unless `closeDashboard` is false (`keepDashboardOpen` enabled).

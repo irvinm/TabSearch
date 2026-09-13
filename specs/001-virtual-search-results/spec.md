@@ -12,17 +12,16 @@
 
 ### Session 2026-07-04
 
-- Q: What search matching strategy should the query input field on the dashboard support? → A: The dashboard page will support the same search options that popup.html provides (Search URLs, Search tab titles, Search contents of loaded tabs, and Fuzzy matching with a configurable threshold), loading and syncing these preferences from extension storage.
-- Q: In what order should the window sections be listed on the dashboard page? → A: The active window first, followed by the remaining windows in ascending window ID order.
-- Q: If the dashboard tab is already open in Window A, and the user runs a search from the popup in Window B, what should happen? → A: Update the dashboard tab in Window A, focus that tab, and bring Window A to the front.
+- Q: What search matching strategy should the query input field on the dashboard support? → A: The dashboard page mirrors the popup search options (Search URLs, Search tab titles, Search contents of loaded tabs, and Fuzzy matching with a configurable threshold), loading and syncing preferences from extension storage (specified in FR-009).
+- Q: If the dashboard tab is already open in Window A, and the user runs a search from the popup in Window B, what should happen? → A: Update the dashboard tab in Window A, focus that tab, and bring Window A to the front (specified in FR-004).
 
 ### Session 2026-08-30
 
 - Q: How should the <100ms real-time filter target (SC-004) interact with "Search contents of loaded tabs" on the dashboard? → A: The 100ms bound applies to URL/title/fuzzy matching only; content search re-runs on the same debounced keystroke cycle with no strict latency bound, since it performs per-tab content lookups that may take longer on large tab sets.
 - Q: What should the dashboard display when the query is empty (e.g., the user clears the input box)? → A: List all tabs grouped by window (empty query = no filter), consistent with the popup's existing empty-search behavior.
-- Q: How should arrow-key navigation treat results inside collapsed (hidden) window sections? → A: Arrow navigation skips collapsed sections — only visible results can be highlighted or selected with Enter.
-- Q: Should the dashboard show a loading indicator while initial results are being computed? → A: Yes — show a simple "Searching…" placeholder until the first render completes, then replace it with the results list or the no-results message.
-- Q: What is the canonical ordering rule for window sections, given Firefox exposes no window creation timestamp? → A: Active window first, then remaining windows in ascending window ID order ("chronological" dropped as not implementable).
+- Q: How should arrow-key navigation treat results inside collapsed (hidden) window sections? → A: Arrow navigation skips collapsed sections — only visible results can be highlighted or selected with Enter (specified in FR-010).
+- Q: Should the dashboard show a loading indicator while initial results are being computed? → A: Yes — show a simple "Searching…" placeholder until the first render completes, then replace it with the results list or the no-results message (specified in FR-013).
+- Q: What is the canonical ordering rule for window sections, given Firefox exposes no window creation timestamp? → A: Active window first, then remaining windows in ascending window ID order ("chronological" dropped as not implementable; specified in FR-005).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -103,8 +102,8 @@ A user with many matching windows wants to collapse sections in the dashboard to
 - **FR-004**: The background script MUST enforce a singleton pattern for the dashboard tab. If the dashboard is already open in a different window, it MUST update the search query, activate that tab, and bring its parent window to the front.
 - **FR-005**: The dashboard page MUST display matching tabs grouped by their parent window, listing the window ID and count of matching tabs. The sections MUST be ordered with the active window first, followed by remaining windows in ascending window ID order.
 - **FR-006**: The dashboard page MUST allow users to collapse and expand individual window sections by clicking on the window headers.
-- **FR-007**: Clicking a search result in the dashboard MUST focus its parent window and activate the target tab.
-- **FR-008**: The dashboard page MUST include a checkbox to "Keep dashboard open after selecting a tab", which defaults to unchecked; selecting a result MUST close the dashboard tab unless this checkbox is checked.
+- **FR-007**: Clicking a search result in the dashboard MUST focus its parent window (restoring the window if minimized) and activate the target tab.
+- **FR-008**: The dashboard page MUST include a checkbox to "Keep dashboard open after selecting a tab" (persisted in local storage under `keepDashboardOpen`), which defaults to unchecked; selecting a result MUST close the dashboard tab unless this checkbox is checked.
 - **FR-009**: The dashboard page MUST include a search query input field that filters and updates the listed matching tabs in real-time as the user types, using the same search options that the popup provides (such as Search URLs, Search tab titles, Search contents of loaded tabs, and Fuzzy matching, loaded from storage). When the query is empty, the dashboard MUST list all tabs grouped by window (no filtering).
 - **FR-010**: The dashboard page MUST support full keyboard navigation using Arrow Up, Arrow Down, and Enter to highlight and select results. Arrow navigation MUST skip tabs inside collapsed window sections; only visible results can be highlighted or selected.
 - **FR-011**: The extension MUST NOT hide any tabs when searching in Virtual Search Results Dashboard mode.
@@ -129,5 +128,5 @@ A user with many matching windows wants to collapse sections in the dashboard to
 
 - Browser extension APIs (`browser.storage`, `browser.tabs`, `browser.windows`) are supported by Firefox (Manifest V3), the sole target browser.
 - The dashboard is packaged as a local extension resource `src/search-results.html`.
-- The dashboard automatically inherits or respects the user's system dark/light theme settings.
+- The dashboard automatically inherits or respects the user's system dark/light theme settings via CSS `@media (prefers-color-scheme)` queries and shared CSS design tokens.
 - Bulk operations (such as multi-select checkboxes for closing or moving tabs) are out of scope for the initial release.

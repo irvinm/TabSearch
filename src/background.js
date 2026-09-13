@@ -690,7 +690,14 @@ async function handleOpenDashboard(query) {
         console.warn('[TabSearch] Failed to send update-query message (tab might be loading):', err);
       }
       await browser.tabs.update(dashboardTabId, { active: true });
-      await browser.windows.update(tab.windowId, { focused: true });
+      const winUpdate = { focused: true };
+      if (browser.windows.get) {
+        const targetWin = await browser.windows.get(tab.windowId).catch(() => null);
+        if (targetWin && targetWin.state === 'minimized') {
+          winUpdate.state = 'normal';
+        }
+      }
+      await browser.windows.update(tab.windowId, winUpdate);
       return;
     } catch (e) {
       console.log('[TabSearch] Dashboard tab with cached ID not found, performing query search...');
@@ -716,7 +723,14 @@ async function handleOpenDashboard(query) {
         console.warn('[TabSearch] Failed to send update-query to existing tab:', err);
       }
       await browser.tabs.update(dashboardTabId, { active: true });
-      await browser.windows.update(existingTab.windowId, { focused: true });
+      const winUpdate = { focused: true };
+      if (browser.windows.get) {
+        const targetWin = await browser.windows.get(existingTab.windowId).catch(() => null);
+        if (targetWin && targetWin.state === 'minimized') {
+          winUpdate.state = 'normal';
+        }
+      }
+      await browser.windows.update(existingTab.windowId, winUpdate);
       return;
     }
   } catch (e) {
@@ -926,7 +940,14 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
     isActivatingTab = true;
     try {
       if (msg.windowId) {
-        await browser.windows.update(msg.windowId, { focused: true });
+        const winUpdate = { focused: true };
+        if (browser.windows.get) {
+          const targetWin = await browser.windows.get(msg.windowId).catch(() => null);
+          if (targetWin && targetWin.state === 'minimized') {
+            winUpdate.state = 'normal';
+          }
+        }
+        await browser.windows.update(msg.windowId, winUpdate);
       }
       if (msg.tabId) {
         await browser.tabs.update(msg.tabId, { active: true });

@@ -788,7 +788,14 @@ async function activateTab(tab) {
     }
 
     // Fallback if runtime messaging is unavailable
-    await browser.windows.update(tab.windowId, { focused: true });
+    const winUpdate = { focused: true };
+    if (browser.windows && browser.windows.get) {
+      const targetWin = await browser.windows.get(tab.windowId).catch(() => null);
+      if (targetWin && targetWin.state === 'minimized') {
+        winUpdate.state = 'normal';
+      }
+    }
+    await browser.windows.update(tab.windowId, winUpdate);
     // 2. Activate tab
     await browser.tabs.update(tab.id, { active: true });
 

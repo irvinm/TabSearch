@@ -21,7 +21,7 @@ function createEvent() {
   };
 }
 
-function loadBackground({ initialTabs = [], lastFocusedWindowId = 1 } = {}) {
+function loadBackground({ initialTabs = [], lastFocusedWindowId = 1, windowStates = new Map() } = {}) {
   const calls = {
     createdTabs: [],
     queriedTabs: [],
@@ -100,6 +100,9 @@ function loadBackground({ initialTabs = [], lastFocusedWindowId = 1 } = {}) {
       onFocusChanged: createEvent(),
       async getLastFocused() {
         return { id: lastFocusedWindowId };
+      },
+      async get(windowId) {
+        return { id: windowId, state: windowStates.get(windowId) || 'normal' };
       },
       async update(windowId, updateProperties) {
         calls.windowUpdates.push({ windowId, updateProperties: toPlain(updateProperties) });
@@ -226,4 +229,20 @@ test('activate-tab preserves the dashboard when keep-open behavior is requested'
   assert.deepEqual(calls.windowUpdates, [{ windowId: 5, updateProperties: { focused: true } }]);
   assert.deepEqual(calls.tabUpdates, [{ tabId: 15, updateProperties: { active: true } }]);
   assert.deepEqual(calls.removedTabs, []);
+});
+
+test('activate-tab restores minimized parent window to normal state and focuses it (FR-007)', async () => {
+  const windowStates = new Map([[7, 'minimized']]);
+  const { calls, handleMessage } = loadBackground({ lastFocusedWindowId: 4, windowStates });
+  await handleMessage({ action: 'open-dashboard', query: '' }, {});
+
+  await handleMessage({
+    action: 'activate-tab',
+    tabId: 99,
+    windowId: 7,
+    closeDashboard: true
+  }, {});
+
+  assert.deepEqual(calls.windowUpdates, [{ windowId: 7, updateProperties: { focused: true, state: 'normal' } }]);
+  assert.deepEqual(calls.tabUpdates, [{ tabId: 99, updateProperties: { active: true } }]);
 });

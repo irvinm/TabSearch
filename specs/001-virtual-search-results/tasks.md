@@ -4,7 +4,7 @@
 
 **Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Unit tests are MANDATORY per Constitution v1.2.0 Principle V. Core logic and helper utilities must have automated test cases run via `npm test`.
+**Tests**: Unit tests are MANDATORY per Constitution v1.3.0 Principle V (mandating automated unit tests and ≥ 80% JSDoc docstring coverage). Core logic and helper utilities must have automated test cases run via `npm test`.
 
 **Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
@@ -68,7 +68,7 @@
 - [x] T011 [P] [US2] Implement tab query, fuzzy filtering, and grouping logic by window ID in `src/search-results.js`, loading and applying the popup's search options from storage (Search URLs, Search tab titles, Search contents of loaded tabs, and Fuzzy matching threshold) so the dashboard matches the same tabs the popup would (FR-009)
 - [x] T012 [P] [US2] Sort grouped window sections with active window first, followed by others in ascending window ID order in `src/search-results.js`
 - [x] T013 [P] [US2] Implement rendering of grouped windows and tabs to the page DOM in `src/search-results.js`, including the "No matching tabs found" empty state
-- [x] T014 [US2] Add click handlers in `src/search-results.js` to activate the target tab and focus its window, and close the dashboard unless `keepDashboardOpen` is true
+- [x] T014 [US2] Add click handlers in `src/search-results.js` to activate the target tab, focus and restore its parent window (if minimized), and close the dashboard unless `keepDashboardOpen` is true (FR-007)
 
 **Checkpoint**: Basic consolidated dashboard with click-to-activate is fully functional.
 
@@ -126,12 +126,14 @@
 
 ## Phase 9: Release (Principles V & VII)
 
-**Purpose**: Automated testing, documentation review, versioning & release hygiene per Constitution v1.2.0
+**Purpose**: Automated testing, documentation review, versioning & release hygiene per Constitution v1.3.0
 
 - [x] T027 Bump version in `package.json` and `src/manifest.json` from `0.7.1` to `0.8.0` (both files MUST stay in sync, Semantic Versioning)
 - [x] T028 Review and update `README.md` (changelog & documentation) and `AMO/AMO_DESCRIPTION.md` (store description)
-- [x] T029 Execute automated unit test suite (`npm test`) and linter (`npx web-ext lint`) with 0 errors
-- [x] T030 Run `npm run build` and verify the `.xpi` artifact is produced in `web-ext-artifacts/`
+- [x] T029 Implement and maintain automated unit test suites in `tests/` covering dashboard filtering, window grouping/sorting, and background routing (`tests/dashboard-behavior.test.js`, `tests/background-dashboard.test.js`, `tests/window-grouping.test.js`, `tests/search.test.js`)
+- [x] T030 Verify Docstring & JSDoc Coverage Gate (≥ 80% coverage with `@param` and `@returns`) across all touched functions per Constitution v1.3.0 Principle V
+- [x] T031 Execute automated unit test suite (`npm test`) and linter (`npx web-ext lint`) with 0 errors
+- [x] T032 Run `npm run build` and verify the `.xpi` artifact is produced in `web-ext-artifacts/`
 
 ---
 

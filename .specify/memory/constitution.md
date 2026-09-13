@@ -66,10 +66,6 @@ for the explicit "search contents" feature and only from loaded tabs.
 ### V. Verification (NON-NEGOTIABLE)
 No feature is complete until it has been verified with automated unit tests for
 all non-trivial logic (parsing, filtering algorithms, state transitions, helper
-utilities) AND manually verified against the feature's `quickstart.md`
-scenarios on Firefox. Unit tests MUST be executable via `npm test` with zero
-failures. A feature that cannot be demonstrated working or fails automated tests
-MUST NOT be marked complete or released.
 utilities), documented with standard JSDoc comments (`@param`, `@returns`) meeting
 or exceeding 80% docstring coverage, AND manually verified against the feature's
 `quickstart.md` scenarios on Firefox. Unit tests MUST be executable via `npm test`
@@ -130,5 +126,4 @@ Semantic Versioning rules in Principle VII, and (3) propagation of any changed
 principle across the dependent templates and active feature artifacts.
 Compliance is verified at the plan gate and again before release.
 
-**Version**: 1.2.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
 **Version**: 1.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
