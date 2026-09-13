@@ -11,27 +11,28 @@
       <div class="dashboard-title-row">
         <h1 class="dashboard-title">Tab Search Results</h1>
       </div>
-      <div class="dashboard-search-bar">
-        <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
-      </div>
-      <div class="dashboard-settings-row">
-        <label><input type="checkbox" id="search-urls"> Search URLs</label>
-        <label><input type="checkbox" id="search-titles"> Search tab titles</label>
-        <label><input type="checkbox" id="search-contents"> Search contents of loaded tabs</label>
-        <label><input type="checkbox" id="fuzzy-search"> Fuzzy matching</label>
-        <div id="threshold-row" class="threshold-container" hidden>
-          <input type="range" id="fuzzy-threshold" min="0.0" max="1.0" step="0.05" value="0.35">
-          <span id="threshold-value">0.35</span>
+      <div class="dashboard-controls-grid">
+        <div class="dashboard-controls-left">
+          <div class="dashboard-search-bar">
+            <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
+          </div>
+          <div class="dashboard-actions-group">
+            <button type="button" id="collapse-all-btn" class="action-btn">Collapse All</button>
+            <button type="button" id="expand-all-btn" class="action-btn">Expand All</button>
+          </div>
         </div>
-      </div>
-      <div class="dashboard-options-row">
-        <label>
-          <input type="checkbox" id="keep-dashboard-open">
-          Keep dashboard open after selecting a tab
-        </label>
-        <div class="dashboard-actions-group">
-          <button type="button" id="collapse-all-btn" class="action-btn">Collapse All</button>
-          <button type="button" id="expand-all-btn" class="action-btn">Expand All</button>
+        <div class="dashboard-controls-right">
+          <label><input type="checkbox" id="search-urls"> Search URLs</label>
+          <label><input type="checkbox" id="search-titles"> Search tab titles</label>
+          <label><input type="checkbox" id="search-contents"> Search contents of loaded tabs</label>
+          <label class="fuzzy-search-label">
+            <input type="checkbox" id="fuzzy-search"> Fuzzy matching
+            <div id="threshold-row" class="threshold-container" hidden>
+              <input type="range" id="fuzzy-threshold" min="0.0" max="1.0" step="0.05" value="0.35">
+              <span id="threshold-value">0.35</span>
+            </div>
+          </label>
+          <label><input type="checkbox" id="keep-dashboard-open"> Keep dashboard open after selecting a tab</label>
         </div>
       </div>
     </div>
