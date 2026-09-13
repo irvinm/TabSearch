@@ -93,3 +93,34 @@ test('walkTSTTree - handles null or empty input safely', () => {
   assert.deepEqual(walkTSTTree(null, [], [], []), { parents: [], children: [], collapsedParents: [] });
   assert.deepEqual(walkTSTTree([], [], [], []), { parents: [], children: [], collapsedParents: [] });
 });
+
+test('walkTSTTree - treats nodes without a children property as leaves', () => {
+  const tree = [
+    { id: 1, title: 'No children property' },
+    { id: 2, title: 'Null children', children: null }
+  ];
+
+  const result = walkTSTTree(tree);
+
+  assert.deepEqual(result.parents, []);
+  assert.deepEqual(result.children.map(node => node.id), [1, 2]);
+  assert.deepEqual(result.collapsedParents, []);
+});
+
+test('walkTSTTree - records collapsed parents at every nesting level', () => {
+  const tree = [{
+    id: 1,
+    states: ['subtree-collapsed'],
+    children: [{
+      id: 2,
+      states: ['subtree-collapsed'],
+      children: [{ id: 3, children: [] }]
+    }]
+  }];
+
+  const result = walkTSTTree(tree);
+
+  assert.deepEqual(result.parents.map(node => node.id), [1, 2]);
+  assert.deepEqual(result.children.map(node => node.id), [3]);
+  assert.deepEqual(result.collapsedParents.map(node => node.id), [1, 2]);
+});

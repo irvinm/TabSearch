@@ -53,3 +53,35 @@ test('getTabFaviconUrl - web pages with invalid chrome:// favIconUrl fall back t
   };
   assert.equal(getTabFaviconUrl(tab), 'https://news.ycombinator.com/favicon.ico');
 });
+
+test('getTabFaviconUrl - loading placeholders and non-web schemes use safe fallbacks', () => {
+  assert.equal(getTabFaviconUrl({
+    url: 'https://example.com/path',
+    favIconUrl: 'https://example.com/loading-spinner.gif'
+  }), 'https://example.com/favicon.ico');
+  assert.equal(getTabFaviconUrl({ url: 'file:///tmp/readme.html' }), 'images/default-favicon.svg');
+  assert.equal(getTabFaviconUrl({ url: 'not a valid URL' }), 'images/default-favicon.svg');
+});
+
+test('getTabFaviconUrl - recognizes TabSearch pages as first-party extension tabs', () => {
+  global.browser = {
+    runtime: {
+      getURL(resource = '') {
+        return `moz-extension://tabsearch/${resource}`;
+      }
+    }
+  };
+
+  try {
+    assert.equal(
+      getTabFaviconUrl({ url: 'moz-extension://tabsearch/search-results.html?q=test' }),
+      'images/search16.png'
+    );
+    assert.equal(
+      getTabFaviconUrl({ url: 'moz-extension://different-addon/page.html' }),
+      'images/addon.svg'
+    );
+  } finally {
+    delete global.browser;
+  }
+});
