@@ -14,8 +14,14 @@
       </div>
       <div class="dashboard-controls-grid">
         <div class="dashboard-controls-left">
-          <div class="dashboard-search-bar">
-            <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
+          <div class="dashboard-search-area">
+            <div class="dashboard-search-bar">
+              <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
+            </div>
+            <div id="total-summary" class="dashboard-total-summary" aria-live="polite">
+              <span class="total-summary-label">Total matching:</span>
+              <span id="total-summary-badge" class="window-badge">0 / 0 tabs</span>
+            </div>
           </div>
           <div class="dashboard-actions-group">
             <button type="button" id="collapse-all-btn" class="action-btn">Collapse All</button>

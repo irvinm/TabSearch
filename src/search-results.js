@@ -588,6 +588,12 @@ function renderResults(activeWindowId) {
   container.innerHTML = '';
   flatResults = [];
 
+  const totalSummaryBadge = document.getElementById('total-summary-badge');
+  if (totalSummaryBadge) {
+    const tabWord = allTabs.length === 1 ? 'tab' : 'tabs';
+    totalSummaryBadge.textContent = `${matchedTabs.length} / ${allTabs.length} ${tabWord}`;
+  }
+
   if (matchedTabs.length === 0) {
     const noResultsDiv = document.createElement('div');
     noResultsDiv.className = 'no-results';
@@ -630,10 +636,20 @@ function renderResults(activeWindowId) {
 
     const titleSpan = document.createElement('span');
     titleSpan.className = 'window-title';
-    titleSpan.textContent = `Window ${index + 1} (${matchCount} / ${totalCount} tabs)`;
+
+    const windowName = document.createElement('span');
+    windowName.className = 'window-name';
+    windowName.textContent = `Window ${index + 1}`;
+
+    const badge = document.createElement('span');
+    badge.className = 'window-badge';
+    badge.textContent = `${matchCount} / ${totalCount} tabs`;
+
+    titleSpan.appendChild(windowName);
+    titleSpan.appendChild(badge);
 
     const toggleIcon = document.createElement('span');
-    toggleIcon.className = 'window-toggle';
+    toggleIcon.className = 'window-toggle-icon';
     toggleIcon.textContent = '▼';
 
     header.appendChild(titleSpan);
