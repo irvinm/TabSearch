@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tab Search Results Dashboard</title>
+  <link rel="icon" type="image/png" href="images/search32.png">
+  <link rel="stylesheet" href="common.css">
+</head>
+<body class="dashboard-body">
+  <div class="dashboard-container">
+    <div class="dashboard-header">
+      <div class="dashboard-title-row">
+        <h1 class="dashboard-title">Tab Search Results</h1>
+      </div>
+      <div class="dashboard-controls-grid">
+        <div class="dashboard-controls-left">
+          <div class="dashboard-search-area">
+            <div class="dashboard-search-bar">
+              <input id="search" type="text" class="dashboard-search-input" placeholder="Refine search query..." autocomplete="off">
+            </div>
+            <div id="total-summary" class="dashboard-total-summary" aria-live="polite">
+              <span class="total-summary-label">Total matching:</span>
+              <span id="total-summary-badge" class="window-badge">0 / 0 tabs</span>
+            </div>
+          </div>
+          <div class="dashboard-actions-group">
+            <button type="button" id="collapse-all-btn" class="action-btn">Collapse All</button>
+            <button type="button" id="expand-all-btn" class="action-btn">Expand All</button>
+          </div>
+        </div>
+        <div class="dashboard-controls-right">
+          <label><input type="checkbox" id="search-urls"> Search URLs</label>
+          <label><input type="checkbox" id="search-titles"> Search tab titles</label>
+          <label><input type="checkbox" id="search-contents"> Search contents of loaded tabs</label>
+          <label class="fuzzy-search-label">
+            <input type="checkbox" id="fuzzy-search"> Fuzzy matching
+            <div id="threshold-row" class="threshold-container" hidden>
+              <input type="range" id="fuzzy-threshold" min="0.0" max="1.0" step="0.05" value="0.35">
+              <span id="threshold-value">0.35</span>
+            </div>
+          </label>
+          <label><input type="checkbox" id="keep-dashboard-open"> Keep dashboard open after selecting a tab</label>
+        </div>
+      </div>
+    </div>
+    
+    <div id="results-container">
+      <div id="loading-placeholder" class="loading-placeholder">Searching…</div>
+      <!-- Grouped window sections will be dynamically rendered here -->
+    </div>
+  </div>
+  <script src="fuse.basic.min.js"></script>
+  <script src="search-results.js"></script>
+</body>
+</html>

@@ -1,4 +1,8 @@
-// --- Monitor and React to All Option Changes ---
+/**
+ * Resets the search input and instructs the background script to restore the pre-search tab visibility state.
+ *
+ * @returns {void}
+ */
 function handleOptionChange() {
   // Reset the search input field
   document.getElementById('search').value = '';
@@ -22,7 +26,11 @@ function handleOptionChange() {
   }
 }
 
-// Audio search button handler
+/**
+ * Displays a non-intrusive modal overlay notifying the user that no tabs are actively playing audio.
+ *
+ * @returns {void}
+ */
 function showNoAudioTabsMessage() {
   // Create overlay
   let overlay = document.createElement('div');
@@ -71,6 +79,11 @@ function showNoAudioTabsMessage() {
   document.body.appendChild(overlay);
 }
 
+/**
+ * Searches for all tabs playing audio and either focuses the single audible tab or hides non-audible tabs.
+ *
+ * @returns {void}
+ */
 function searchAudioTabs() {
   if (!browser || !browser.tabs) return;
   browser.tabs.query({ audible: true })
@@ -114,8 +127,23 @@ document.addEventListener('DOMContentLoaded', function() {
 // Log when popup.html is opened
 console.warn('[TabSearch] popup.html opened at', new Date().toISOString());
 
+// Connect a lifecycle port to ensure popup close is reliably detected by the background script
+// even if asynchronous sendMessage calls in pagehide/unload are cancelled during process teardown
+if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.connect) {
+  try {
+    browser.runtime.connect({ name: 'popup-lifecycle' });
+  } catch (err) {
+    console.warn('[TabSearch] Failed to connect popup lifecycle port:', err);
+  }
+}
+
 let popupCloseMessageSent = false;
 
+/**
+ * Notifies the background script that the popup has closed or lost focus.
+ *
+ * @returns {void}
+ */
 function notifyPopupClosed() {
   if (popupCloseMessageSent) {
     return;
@@ -123,7 +151,9 @@ function notifyPopupClosed() {
 
   popupCloseMessageSent = true;
   console.log('[TabSearch] focusout: Sending popup-closed message to background');
-  browser.runtime.sendMessage({ action: 'popup-closed' });
+  if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.sendMessage) {
+    browser.runtime.sendMessage({ action: 'popup-closed' }).catch(() => {});
+  }
 }
 
 // Log document.activeElement on every focus change
@@ -131,23 +161,25 @@ document.addEventListener('focusin', (e) => {
   console.log('[TabSearch] focusin: document.activeElement:', document.activeElement, document.activeElement && document.activeElement.id);
 });
 
-document.addEventListener('focusout', (e) => {
-  console.log('[TabSearch] focusout: document.activeElement:', document.activeElement, document.activeElement && document.activeElement.id);
+// Use pagehide and unload to detect when the popup is closing
+window.addEventListener('pagehide', () => {
+  console.log('[TabSearch] pagehide: popup is closing');
+  notifyPopupClosed();
+});
 
-  const nextFocusedElement = e.relatedTarget;
-  if (nextFocusedElement && document.contains(nextFocusedElement)) {
-    return;
-  }
-
-  setTimeout(() => {
-    if (!document.hasFocus()) {
-      notifyPopupClosed();
-    }
-  }, 0);
+window.addEventListener('unload', () => {
+  console.log('[TabSearch] unload: popup is closing');
+  notifyPopupClosed();
 });
 
 // Handle privacy info button click (must be in external JS due to CSP)
 document.addEventListener('DOMContentLoaded', function() {
+  /**
+   * Resets tab filtering and opens a specified informational documentation page in a new active tab.
+   *
+   * @param {string} pageName - HTML filename of the documentation page to open.
+   * @returns {Promise<void>} Resolves once the tab is created.
+   */
   async function openInfoTab(pageName) {
     // Keep info pages out of an in-progress filtered state without re-highlighting tabs.
     const searchInput = document.getElementById('search');
@@ -194,6 +226,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // Utility to get and set options in storage
 
+/**
+ * Persists an object of configuration options into extension local storage.
+ *
+ * @param {Object.<string, any>} options - Key-value map of preferences to save.
+ * @returns {void}
+ */
 function saveOptions(options) {
   console.log('[TabSearch] Saving options:', options);
 
@@ -205,12 +243,75 @@ function saveOptions(options) {
   }
 }
 
+/**
+ * Loads extension options from browser local storage and invokes the provided callback.
+ *
+ * @param {function(Object.<string, any>): void} callback - Callback receiving loaded options.
+ * @returns {void}
+ */
 function loadOptions(callback) {
   if (browser && browser.storage && browser.storage.local) {
-    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand"]).then(callback);
+    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen", "hasCompletedIntroPrompt"]).then(callback);
   }
 }
 
+/**
+ * Updates disabled/enabled DOM state and styles for options incompatible with Virtual Dashboard mode.
+ *
+ * @returns {void}
+ */
+function updateDisabledOptionsState() {
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
+  const tstSupportInput = document.getElementById('tst-support');
+  const tstSupportChecked = tstSupportInput ? tstSupportInput.checked : false;
+  
+  // List of options to disable when virtual dashboard is active
+  const optionIds = [
+    'realtime-search',
+    'select-matching-tabs',
+    'tst-support'
+  ];
+  
+  optionIds.forEach(id => {
+    const input = document.getElementById(id);
+    if (input) {
+      input.disabled = virtualDashboard;
+      const label = input.closest('label');
+      if (label) {
+        if (virtualDashboard) {
+          label.classList.add('disabled-label');
+        } else {
+          label.classList.remove('disabled-label');
+        }
+      }
+    }
+  });
+
+  // Handle TST suboption separately
+  const tstAutoExpandInput = document.getElementById('tst-auto-expand');
+  const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
+  if (tstAutoExpandInput) {
+    const shouldDisableTSTSub = virtualDashboard || !tstSupportChecked;
+    tstAutoExpandInput.disabled = shouldDisableTSTSub;
+    const label = tstAutoExpandInput.closest('label');
+    if (label) {
+      if (shouldDisableTSTSub) {
+        label.classList.add('disabled-label');
+      } else {
+        label.classList.remove('disabled-label');
+      }
+    }
+  }
+  if (tstAutoExpandRow) {
+    tstAutoExpandRow.hidden = virtualDashboard || !tstSupportChecked;
+  }
+}
+
+/**
+ * Updates search button enabled state and search input disabled state based on active configuration.
+ *
+ * @returns {void}
+ */
 function updateSearchButtonState() {
   const searchBtn = document.getElementById('search-btn');
   const searchInput = document.getElementById('search');
@@ -218,9 +319,14 @@ function updateSearchButtonState() {
   const titlesChecked = document.getElementById('search-titles').checked;
   const contentsChecked = document.getElementById('search-contents').checked;
   const realtimeChecked = document.getElementById('realtime-search').checked;
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
   const enableSearch = urlsChecked || titlesChecked || contentsChecked;
-  // Only exception: when real-time search is enabled, disable the search button
-  searchBtn.disabled = !!realtimeChecked;
+  
+  // Disable/grey out irrelevant options in virtual dashboard mode
+  updateDisabledOptionsState();
+
+  // Enable search button if virtual dashboard is active, otherwise disable it when real-time search is active
+  searchBtn.disabled = !virtualDashboard && !!realtimeChecked;
   if (searchInput) {
     searchInput.disabled = !enableSearch;
   }
@@ -248,9 +354,13 @@ document.getElementById('search-btn').addEventListener('click', function(e) {
   doSearch();
 });
 
-// Prevent Tab key from changing focus between elements in the popup
+// Prevent Tab key from changing focus between elements in the popup (allow on intro screen)
 window.addEventListener('keydown', function(event) {
   if (event.key === 'Tab') {
+    const introScreen = document.getElementById('intro-screen');
+    if (introScreen && !introScreen.hidden) {
+      return;
+    }
     event.preventDefault();
   }
 });
@@ -270,7 +380,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
     let urlsChecked = allUndefined ? true : (typeof items.searchUrls === 'undefined' ? true : !!items.searchUrls);
     let titlesChecked = allUndefined ? true : (typeof items.searchTitles === 'undefined' ? true : !!items.searchTitles);
-    let contentsChecked = allUndefined ? true : (typeof items.searchContents === 'undefined' ? true : !!items.searchContents); // default true
+    let contentsChecked = allUndefined ? false : (typeof items.searchContents === 'undefined' ? false : !!items.searchContents); // default false
     let realtimeChecked = allUndefined ? true : (typeof items.realtimeSearch === 'undefined' ? true : !!items.realtimeSearch);
     let fuzzyChecked = allUndefined ? false : (typeof items.fuzzySearch === 'undefined' ? false : !!items.fuzzySearch);
     let fuzzyThreshold = allUndefined ? 0.35 : (typeof items.fuzzyThreshold === 'undefined' ? 0.35 : parseFloat(items.fuzzyThreshold));
@@ -279,6 +389,7 @@ window.addEventListener('DOMContentLoaded', function() {
     let disableEmptyTabChecked = allUndefined ? false : (typeof items.disableEmptyTab === 'undefined' ? false : !!items.disableEmptyTab);
     let tstSupportChecked = allUndefined ? false : (typeof items.tstSupport === 'undefined' ? false : !!items.tstSupport);
     let tstAutoExpandChecked = allUndefined ? false : (typeof items.tstAutoExpand === 'undefined' ? false : !!items.tstAutoExpand);
+    let virtualDashboardChecked = allUndefined ? false : (typeof items.virtualDashboard === 'undefined' ? false : !!items.virtualDashboard);
 
     document.getElementById('search-urls').checked = urlsChecked;
     document.getElementById('search-titles').checked = titlesChecked;
@@ -293,6 +404,7 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('disable-empty-tab').checked = disableEmptyTabChecked;
     document.getElementById('tst-support').checked = tstSupportChecked;
     document.getElementById('tst-auto-expand').checked = tstAutoExpandChecked;
+    document.getElementById('virtual-dashboard').checked = virtualDashboardChecked;
 
     const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
     const tstAutoExpandInput = document.getElementById('tst-auto-expand');
@@ -306,7 +418,7 @@ window.addEventListener('DOMContentLoaded', function() {
 
     // If all were undefined, save the defaults so future loads are correct
     if (allUndefined) {
-      saveOptions({ searchUrls: true, searchTitles: true, searchContents: true, realtimeSearch: true, fuzzySearch: false, fuzzyThreshold: 0.35, disableEmptyTab: false, selectMatchingTabs: false, tstSupport: false, tstAutoExpand: false });
+      saveOptions({ searchUrls: true, searchTitles: true, searchContents: false, realtimeSearch: true, fuzzySearch: false, fuzzyThreshold: 0.35, disableEmptyTab: false, selectMatchingTabs: false, tstSupport: false, tstAutoExpand: false, virtualDashboard: false, keepDashboardOpen: false });
     }
     document.getElementById('tst-support').addEventListener('change', function() {
       const checked = this.checked;
@@ -385,11 +497,38 @@ window.addEventListener('DOMContentLoaded', function() {
         setTimeout(tryFocusSelect, 0);
       }
     }
-    robustFocusSelect(searchInput);
+
+    const introScreen = document.getElementById('intro-screen');
+    const searchForm = document.getElementById('search-form');
+    const introEnableBtn = document.getElementById('intro-enable-btn');
+
+    if (introEnableBtn) {
+      introEnableBtn.addEventListener('click', function() {
+        browser.storage.local.set({ hasCompletedIntroPrompt: true }).catch(() => {});
+        browser.runtime.sendMessage({ action: 'trigger-initial-hide', force: true }).catch(() => {});
+        window.close();
+      });
+    }
+
+    if (!items.hasCompletedIntroPrompt) {
+      if (introScreen) introScreen.hidden = false;
+      if (searchForm) searchForm.hidden = true;
+      if (introEnableBtn) {
+        introEnableBtn.focus();
+      }
+    } else {
+      if (introScreen) introScreen.hidden = true;
+      if (searchForm) searchForm.hidden = false;
+      robustFocusSelect(searchInput);
+    }
 
     // Real-time search handler (must be inside this block so searchInput is defined)
     let debounceTimer;
     searchInput.addEventListener('input', function() {
+      // If virtual dashboard is checked, ignore real-time trigger to prevent keystroke loss
+      if (document.getElementById('virtual-dashboard').checked) {
+        return;
+      }
       if (document.getElementById('realtime-search').checked) {
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
@@ -400,6 +539,11 @@ window.addEventListener('DOMContentLoaded', function() {
   }
   });
 
+  /**
+   * Reads all current option control states from the popup DOM and persists them into storage.
+   *
+   * @returns {void}
+   */
   function saveAllOptions() {
     saveOptions({
       searchUrls: document.getElementById('search-urls').checked,
@@ -411,7 +555,8 @@ window.addEventListener('DOMContentLoaded', function() {
       disableEmptyTab: document.getElementById('disable-empty-tab').checked,
       selectMatchingTabs: document.getElementById('select-matching-tabs').checked,
       tstSupport: document.getElementById('tst-support').checked,
-      tstAutoExpand: document.getElementById('tst-auto-expand').checked
+      tstAutoExpand: document.getElementById('tst-auto-expand').checked,
+      virtualDashboard: document.getElementById('virtual-dashboard').checked
     });
   }
 
@@ -469,85 +614,89 @@ window.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('disable-empty-tab').addEventListener('change', function() {
+    const isChecked = document.getElementById('disable-empty-tab').checked;
     saveAllOptions();
-    checkTabHidePermission(false);
+    if (!isChecked) {
+      browser.runtime.sendMessage({ action: 'trigger-initial-hide' }).catch(() => {});
+    }
   });
 
-  // Check tabHide permission status
-  function checkTabHidePermission(force = false) {
-    const warningBanner = document.getElementById('permission-warning');
-    const grantBtn = document.getElementById('grant-permission-btn');
-    if (!warningBanner || !grantBtn) return;
+  document.getElementById('virtual-dashboard').addEventListener('change', function() {
+    saveAllOptions();
+    updateSearchButtonState();
+    handleOptionChange();
+  });
 
-    browser.storage.local.get(['disableEmptyTab']).then((items) => {
-      if (items.disableEmptyTab && !force) {
-        warningBanner.hidden = true;
-        return;
+  // Listen for storage changes to sync preferences in real-time
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.onChanged) {
+    browser.storage.onChanged.addListener((changes) => {
+      let optionsChanged = false;
+      const keys = [
+        'searchUrls', 'searchTitles', 'searchContents', 'realtimeSearch',
+        'fuzzySearch', 'fuzzyThreshold', 'disableEmptyTab', 'selectMatchingTabs',
+        'tstSupport', 'tstAutoExpand', 'virtualDashboard'
+      ];
+      for (const key of keys) {
+        if (changes[key]) {
+          optionsChanged = true;
+          break;
+        }
       }
-
-      browser.runtime.sendMessage({ action: 'check-tabhide-permission', force: force })
-        .then((isGranted) => {
-          if (isGranted) {
-            warningBanner.hidden = true;
-          } else {
-            // Recheck storage in case it changed
-            browser.storage.local.get(['disableEmptyTab']).then((innerItems) => {
-              if (innerItems.disableEmptyTab && !force) {
-                warningBanner.hidden = true;
-              } else {
-                warningBanner.hidden = false;
-              }
-            });
+      if (optionsChanged) {
+        browser.storage.local.get(keys).then((items) => {
+          if (items.searchUrls !== undefined) {
+            document.getElementById('search-urls').checked = !!items.searchUrls;
           }
-        })
-        .catch((err) => {
-          console.warn('[TabSearch] Failed to check tabHide permission:', err);
-          // Fallback: check storage before showing warning
-          browser.storage.local.get(['disableEmptyTab']).then((innerItems) => {
-            if (innerItems.disableEmptyTab && !force) {
-              warningBanner.hidden = true;
-            } else {
-              warningBanner.hidden = false;
+          if (items.searchTitles !== undefined) {
+            document.getElementById('search-titles').checked = !!items.searchTitles;
+          }
+          if (items.searchContents !== undefined) {
+            document.getElementById('search-contents').checked = !!items.searchContents;
+          }
+          if (items.realtimeSearch !== undefined) {
+            document.getElementById('realtime-search').checked = !!items.realtimeSearch;
+          }
+          if (items.fuzzySearch !== undefined) {
+            document.getElementById('fuzzy-search').checked = !!items.fuzzySearch;
+            document.getElementById('threshold-row').hidden = !items.fuzzySearch;
+          }
+          if (items.fuzzyThreshold !== undefined) {
+            document.getElementById('fuzzy-threshold').value = items.fuzzyThreshold;
+            document.getElementById('threshold-value').textContent = parseFloat(items.fuzzyThreshold).toFixed(2);
+          }
+          if (items.disableEmptyTab !== undefined) {
+            document.getElementById('disable-empty-tab').checked = !!items.disableEmptyTab;
+          }
+          if (items.selectMatchingTabs !== undefined) {
+            document.getElementById('select-matching-tabs').checked = !!items.selectMatchingTabs;
+          }
+          if (items.tstSupport !== undefined) {
+            document.getElementById('tst-support').checked = !!items.tstSupport;
+            const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
+            const tstAutoExpandInput = document.getElementById('tst-auto-expand');
+            if (tstAutoExpandRow && tstAutoExpandInput) {
+              tstAutoExpandRow.hidden = !items.tstSupport;
+              tstAutoExpandInput.disabled = !items.tstSupport;
             }
-          });
-        });
-    });
-  }
-
-  // Bind grant button click
-  const grantBtn = document.getElementById('grant-permission-btn');
-  if (grantBtn) {
-    grantBtn.addEventListener('click', function() {
-      const guidance = document.getElementById('permission-guidance');
-      grantBtn.disabled = true;
-      grantBtn.textContent = 'Checking...';
-      if (guidance) guidance.hidden = false;
-
-      // Force verification which triggers the browser prompt
-      browser.runtime.sendMessage({ action: 'check-tabhide-permission', force: true })
-        .then((isGranted) => {
-          grantBtn.disabled = false;
-          grantBtn.textContent = 'Enable Tab Hiding';
-          if (guidance) guidance.hidden = true;
-
-          if (isGranted) {
-            const warningBanner = document.getElementById('permission-warning');
-            if (warningBanner) warningBanner.hidden = true;
           }
-        })
-        .catch((err) => {
-          console.warn('[TabSearch] Error during permission verification:', err);
-          grantBtn.disabled = false;
-          grantBtn.textContent = 'Enable Tab Hiding';
-          if (guidance) guidance.hidden = true;
-        });
+          if (items.tstAutoExpand !== undefined) {
+            document.getElementById('tst-auto-expand').checked = !!items.tstAutoExpand;
+          }
+          if (items.virtualDashboard !== undefined) {
+            document.getElementById('virtual-dashboard').checked = !!items.virtualDashboard;
+          }
+          updateSearchButtonState();
+        }).catch(err => console.warn('[TabSearch] Failed to reload options on change:', err));
+      }
     });
   }
-
-  // Perform initial check on startup
-  checkTabHidePermission(false);
 });
 
+/**
+ * Gathers user input and active search scopes to dispatch search-tabs or open-dashboard messages.
+ *
+ * @returns {void}
+ */
 function doSearch() {
   const term = document.getElementById('search').value.trim();
   const searchUrls = document.getElementById('search-urls').checked;
@@ -556,7 +705,16 @@ function doSearch() {
   const realtimeSearch = document.getElementById('realtime-search').checked;
   const fuzzySearch = document.getElementById('fuzzy-search').checked;
   const fuzzyThreshold = parseFloat(document.getElementById('fuzzy-threshold').value);
+  const virtualDashboard = document.getElementById('virtual-dashboard').checked;
+
   if (!searchUrls && !searchTitles && !searchContents) return;
+
+  if (virtualDashboard) {
+    browser.runtime.sendMessage({ action: 'open-dashboard', query: term });
+    window.close();
+    return;
+  }
+
   if (term || realtimeSearch) {
     browser.runtime.sendMessage({ action: 'search-tabs', term, searchUrls, searchTitles, searchContents, fuzzySearch, fuzzyThreshold });
     // Only close popup if not real-time

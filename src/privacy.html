@@ -109,21 +109,23 @@
     <h1>Privacy & Permissions</h1>
     
     <h2 class="important-header">IMPORTANT</h2>
-    <p>This extension uses the <code>tabs.hide()</code> API to filter your view. Firefox requires explicit user permission for this feature.</p>
+    <p>When using classic Tab Hiding mode, this extension uses Firefox's <code>tabs.hide()</code> API to temporarily filter your open tabs. Firefox requires your explicit permission to hide tabs.</p>
 
-    <h2>First Time Setup</h2>
+    <h2>First-Time Permission Setup</h2>
     <ul class="section-list">
-      <li>The first time you hide a tab, Firefox will show a <strong>privacy dialog</strong>.</li>
-      <li>To use this extension, you must click <strong>Keep Tabs Hidden</strong> in that dialog.</li>
-      <li>This is a one-time requirement by Mozilla to ensure you are aware of the tab-hiding behavior.</li>
+      <li>On first use, TabSearch presents a setup prompt. Clicking <strong>Enable Tab Hiding</strong> (or closing the popup) prompts Firefox's native permission doorhanger.</li>
+      <li>To allow TabSearch to filter tabs, click <strong>&ldquo;Keep tabs hidden&rdquo;</strong> in the Firefox dialog.</li>
+      <li>This is a one-time requirement by Mozilla to ensure you are aware of the tab-hiding capability.</li>
     </ul>
 
     <div class="note-box">
-      <strong>Notes & Technical Details:</strong>
+      <strong>Notes & Privacy Guarantees:</strong>
       <ul class="section-list">
-        <li><strong>Temporary:</strong> Tabs are only hidden while searching and are restored immediately when you close the search.</li>
-        <li><strong>Local Only:</strong> No data is ever sent to external servers. All matching happens entirely within your browser.</li>
-        <li><strong>Workaround:</strong> The "initial hide action" setting in the popup can be disabled once you have granted permission.</li>
+        <li><strong>100% Local:</strong> No tab data, titles, URLs, or search terms are ever transmitted to external servers. All search operations run strictly inside your browser.</li>
+        <li><strong>Temporary:</strong> Tabs are only hidden while an active search is open and are immediately restored when the popup closes or the search is cleared.</li>
+        <li><strong>Safe by Design:</strong> Your currently active tab and pinned tabs are strictly protected and never hidden.</li>
+        <li><strong>Disable Initial Probe:</strong> Once permission is granted, you can check <em>&ldquo;Disable initial hide action&rdquo;</em> in the popup options if you do not want background probes running on startup or popup close.</li>
+        <li><strong>Virtual Dashboard Alternative:</strong> If you prefer not to hide tabs at all, enable <em>&ldquo;Virtual Search Results Dashboard&rdquo;</em> in options to browse and jump between matching tabs in a dedicated tab.</li>
       </ul>
     </div>
 

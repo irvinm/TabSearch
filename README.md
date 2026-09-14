@@ -34,6 +34,21 @@
     - "Select all matching tabs on close" only applies when the search session ends.
 - Shows the number of remaining tabs to be hidden/shown on the addon icon.
 
+### Virtual Search Results Dashboard
+
+- Option to switch from traditional tab-hiding to a dedicated, consolidated search dashboard tab.
+- Groups matching tabs by browser window with the active window listed first.
+- Direct inline search refinement and real-time filtering without re-opening the popup.
+- Interactive collapse/expand controls per window section with saved state.
+- Keyboard navigation (Arrow Up/Down, Enter) to jump directly to target tabs across any window.
+- Smart auto-close: automatically closes the dashboard tab when switching away to another tab or changing window focus (configurable via "Keep dashboard open after selecting a tab").
+- Real-time tab lifecycle synchronization (updates dynamically when tabs are opened, closed, navigated, or moved).
+- Native Firefox and Web Favicons:
+    - Displays the authentic, full-color Firefox logo for native browser tabs (`about:blank`, `about:newtab`, `about:home`, `about:welcome`).
+    - Dedicated Mozilla Photon SVG icons for protected internal pages (`about:addons`, `about:preferences`, `about:config`, `about:downloads`, `about:history`, `about:bookmarks`, `about:debugging`, `about:support`).
+    - Neutral Firefox globe fallback for web pages without a favicon.
+    - Adaptive light/dark theme support for all embedded SVGs.
+
 ### Tree Style Tab (Optional)
 
 - Optional support for Tree Style Tab (TST).
@@ -45,9 +60,10 @@
 
 ### Permission Initialization
 
-- Option to disable the initial tab-hiding action (once the privacy dialog is accepted).
-    - The addon briefly hides and shows the last tab on startup to trigger Firefox's tab-hiding permission prompt.
-    - Once permission is granted, you can disable this startup initialization step.
+- One-time onboarding setup: On the first click of the addon icon after installation, TabSearch displays a welcome view with guidance on Firefox's native tab-hiding permission requirement.
+- Option to disable the initial tab-hiding action (once the permission dialog has been granted).
+    - The addon uses a temporary background tab to trigger Firefox's tab-hiding permission prompt without disturbing or shifting existing user tabs.
+    - Once permission is granted, you can disable this initialization step.
 
 
 ## Search Dialog Behavior
@@ -60,7 +76,9 @@
 - Search URLs
 - Search tab titles
 - Search contents of loaded tabs
+- Virtual search results dashboard
 - Real-time search
+- Fuzzy matching (titles & URLs)
 - Support for Tree Style Tab (TST)
 - Auto-expand trees with matched tabs
 
@@ -112,6 +130,23 @@
 ## Changelog
 
 <details open>
+<summary><strong>v0.8.0 (2026-08-31) - Virtual Search Results Dashboard & Native Icons</strong></summary>
+
+- **Virtual Search Results Dashboard Mode**:
+    - Added dedicated singleton dashboard page (`search-results.html`) consolidating search results across all browser windows into a single tab.
+    - Multi-window grouping with the active window displayed first, followed by remaining windows in ascending ID order.
+    - Real-time search query refinement and search options synchronization (URLs, titles, loaded tab contents, fuzzy threshold) directly from the dashboard.
+    - Full keyboard navigation (Arrow Up, Arrow Down, Enter) with automatic skipping of collapsed window sections.
+    - Interactive collapsible/expandable window sections with persistent state across search sessions.
+    - Single-click tab jump/focus with support for restoring/focusing minimized background windows.
+    - Configurable auto-close behavior ("Keep dashboard open after selecting a tab") with automatic closing on tab deactivation or window blur.
+    - Real-time tab lifecycle synchronization (`tabs.onCreated`, `tabs.onUpdated`, `tabs.onRemoved`, `tabs.onMoved`, `tabs.onAttached`, `tabs.onDetached`, `windows.onCreated`, `windows.onRemoved`).
+    - Authentic native Firefox branding & Photon SVG icons: official Firefox logos for `about:blank`/`about:newtab`, dedicated Photon SVGs for `about:addons`, `about:preferences`, etc., and clean globe fallbacks.
+    - Loading state placeholder ("Searching…") and full theme-aware (Light/Dark mode) styling.
+    - Popup UX improvements: automatically disables and grays out non-applicable options when Virtual Dashboard mode is active.
+</details>
+
+<details>
 <summary><strong>v0.7.1 (2026-07-04) - TST State Restoration Hardening and Permission Verification</strong></summary>
 
 - **Tab Hide Permission Verification UI/UX**:
