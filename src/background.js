@@ -44,6 +44,7 @@ const TST_REGISTER_MESSAGE = {
 // Constants for timing tolerances
 const POPUP_CLOSE_GRACE_MS = 250; // grace period after popup closed
 const RECENT_ACTIVATION_WINDOW_MS = 500; // window to consider a tab activation recent
+const STORAGE_KEY_TST_SEARCH_STATE = 'tstActiveSearchState';
 
 /**
  * Registers TabSearch as an external listener/integrator with Tree Style Tab (TST).
@@ -65,14 +66,19 @@ function registerWithTST() {
 
 /**
  * Adds the 'flattened' visual state to specified tab(s) via TST runtime messaging.
+ * Normalizes input to numeric tab IDs to handle individual IDs, ID arrays, or tab objects.
  *
- * @param {number|Array<number>} tabId - Single tab ID or array of tab IDs to flatten.
- * @returns {void}
+ * @param {number|browser.tabs.Tab|Array<number|browser.tabs.Tab>} tabId - Single tab ID/object or array of tab IDs/objects to flatten.
+ * @returns {Promise<void>} Resolves when the message is processed by TST.
  */
 function addFlattenedState(tabId) {
-  // Support both single tabId and array of tabIds
-  const tabIds = Array.isArray(tabId) ? tabId : [tabId];
-  browser.runtime.sendMessage(TST_ID, {
+  const tabIds = (Array.isArray(tabId) ? tabId : [tabId])
+    .map(t => (typeof t === 'object' && t !== null && 'id' in t ? t.id : t))
+    .filter(id => typeof id === 'number' && !isNaN(id));
+
+  if (tabIds.length === 0) return Promise.resolve();
+
+  return browser.runtime.sendMessage(TST_ID, {
     type: 'add-tab-state',
     tabs: tabIds,
     state: 'flattened'
@@ -85,14 +91,20 @@ function addFlattenedState(tabId) {
 
 /**
  * Removes the 'flattened' visual state from specified tab(s) via TST runtime messaging.
+ * Normalizes input to numeric tab IDs to handle individual IDs, ID arrays, or tab objects.
  *
- * @param {number|Array<number>} tabId - Single tab ID or array of tab IDs to un-flatten.
- * @returns {void}
+ * @param {number|browser.tabs.Tab|Array<number|browser.tabs.Tab>} tabId - Single tab ID/object or array of tab IDs/objects to un-flatten.
+ * @returns {Promise<void>} Resolves when the message is processed by TST.
  */
 function removeFlattenedState(tabId) {
-  // Support both single tabId and array of tabIds
-  const tabIds = Array.isArray(tabId) ? tabId : [tabId];
-  browser.runtime.sendMessage(TST_ID, {
+  const tabIds = (Array.isArray(tabId) ? tabId : [tabId])
+    .map(t => (typeof t === 'object' && t !== null && 'id' in t ? t.id : t))
+    .filter(id => typeof id === 'number' && !isNaN(id));
+
+  flattenedStateAppliedThisSearch = false;
+  if (tabIds.length === 0) return Promise.resolve();
+
+  return browser.runtime.sendMessage(TST_ID, {
     type: 'remove-tab-state',
     tabs: tabIds,
     state: 'flattened'
@@ -101,7 +113,6 @@ function removeFlattenedState(tabId) {
   }).catch(err => {
     console.warn('[TabSearch][TST] Failed to remove flattened state:', err);
   });
-  flattenedStateAppliedThisSearch = false;
 }
 
 /**
@@ -203,12 +214,25 @@ if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onInsta
 }
 
 // On browser startup (fired when the browser profile starts, not on install),
-// attempt tab hide to trigger the Firefox permission prompt unless disabled by user
+// recover any dangling search state from previous session or crash, and attempt tab hide
+// to trigger the Firefox permission prompt unless disabled by user
 if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onStartup) {
   browser.runtime.onStartup.addListener(async () => {
     if (browser.storage && browser.storage.local) {
       try {
-        const items = await browser.storage.local.get(['disableEmptyTab']);
+        // Check for dangling hidden tabs or un-restored TST state from a browser crash/shutdown
+        const items = await browser.storage.local.get(['disableEmptyTab', STORAGE_KEY_TST_SEARCH_STATE]);
+        if (items[STORAGE_KEY_TST_SEARCH_STATE]) {
+          console.log('[TabSearch] Detected dangling search state on startup; restoring tabs...');
+          await restoreTabsToInitialState();
+        } else if (browser.tabs && browser.tabs.query) {
+          const allTabs = await browser.tabs.query({}).catch(() => []);
+          if (allTabs.some(t => t.hidden)) {
+            console.log('[TabSearch] Detected hidden tabs on startup without state; restoring...');
+            await restoreTabsToInitialState();
+          }
+        }
+
         if (!items.disableEmptyTab) {
           await triggerInitialTabHide(false);
         }
@@ -275,13 +299,47 @@ function startProgressIndicator(getCountFn) {
  * @returns {Promise<void>} Resolves when tabs and TST tree states are restored.
  */
 async function restoreTabsToInitialState(recentActivationToPreserve = null) {
-  const allTabs = await browser.tabs.query({});
+  // Check if in-memory TST state was wiped (e.g. event page restarted during search)
+  // and rehydrate from persistent storage if available
+  if (!originalTSTTreeSnapshotTaken && !flattenedStateAppliedThisSearch) {
+    if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+      try {
+        const items = await browser.storage.local.get([STORAGE_KEY_TST_SEARCH_STATE]);
+        const persistedState = items[STORAGE_KEY_TST_SEARCH_STATE];
+        if (persistedState && persistedState.active) {
+          console.log('[TabSearch][TST] Rehydrating TST search state from storage...');
+          flattenedStateAppliedThisSearch = !!persistedState.flattenedApplied;
+          if (persistedState.originalTSTTreeStructureByWindow && Object.keys(persistedState.originalTSTTreeStructureByWindow).length > 0) {
+            originalTSTTreeStructureByWindow = persistedState.originalTSTTreeStructureByWindow;
+            originalTSTTreeSnapshotTaken = true;
+            parents = persistedState.parents || {};
+            children = persistedState.children || {};
+            collapsedParents = persistedState.collapsedParents || {};
+          }
+        }
+      } catch (err) {
+        console.warn('[TabSearch][TST] Error rehydrating TST state from storage:', err);
+      }
+    }
+  }
 
-  // Use flattenedStateAppliedThisSearch rather than the current tstSupport storage
-  // value, because the option may already have been toggled off before this runs.
-  if (flattenedStateAppliedThisSearch) {
-    const allTabIds = allTabs.map(tab => tab.id);
-    removeFlattenedState(allTabIds);
+  const allTabs = await browser.tabs.query({});
+  const allTabIds = allTabs.map(tab => tab.id);
+
+  // Check user preference for TST support to provide an additional safety net
+  let tstSupportEnabled = false;
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+    try {
+      const prefs = await browser.storage.local.get(['tstSupport']);
+      tstSupportEnabled = !!prefs.tstSupport;
+    } catch {}
+  }
+
+  // If flattened state was applied or TST support is enabled and any tabs were hidden,
+  // ensure flattened state is stripped from all tabs and awaited before proceeding.
+  const hiddenTabsExist = allTabs.some(tab => tab.hidden);
+  if (flattenedStateAppliedThisSearch || (tstSupportEnabled && hiddenTabsExist)) {
+    await removeFlattenedState(allTabIds);
   }
 
   try {
@@ -294,6 +352,11 @@ async function restoreTabsToInitialState(recentActivationToPreserve = null) {
       });
       console.log(`[TabSearch] Showing ${hiddenTabIds.length} hidden tabs:`, hiddenTabIds);
       await browser.tabs.show(hiddenTabIds);
+      updateBadge(0);
+      if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+      }
     } else {
       updateBadge(0);
       if (progressInterval) {
@@ -387,10 +450,20 @@ async function restoreTabsToInitialState(recentActivationToPreserve = null) {
       console.warn('[TabSearch][TST] Failed to restore tree collapsed/expanded state:', e);
     }
   }
+
+  // Clear persisted TST search state from storage now that restoration is complete
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+    try {
+      await browser.storage.local.remove([STORAGE_KEY_TST_SEARCH_STATE]);
+    } catch (err) {
+      console.warn('[TabSearch] Error clearing persisted TST search state:', err);
+    }
+  }
 }
 
 /**
  * Resets all in-memory search tracking, TST snapshot structures, and mutex flags.
+ * Also cleans up any persisted TST search snapshot in local storage.
  *
  * @returns {void}
  */
@@ -404,6 +477,13 @@ function resetSearchTrackingState() {
   snapshotInProgress = false;
   flattenedStateAppliedThisSearch = false;
   recentTabActivation = null;
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+    browser.storage.local.remove([STORAGE_KEY_TST_SEARCH_STATE]).catch(() => {});
+  }
 }
 
 /**
@@ -525,9 +605,28 @@ async function executeSearch(msg) {
           console.log('[TabSearch][TST] Adding flattened state to all tabs');
           const allTabs = await browser.tabs.query({});
           if (allTabs.length > 0) {
-            addFlattenedState(allTabs);
+            await addFlattenedState(allTabs);
           }
           flattenedStateAppliedThisSearch = true;
+        }
+
+        // Persist TST snapshot and flattened state to storage to survive event page idle timeouts
+        if (originalTSTTreeSnapshotTaken || flattenedStateAppliedThisSearch) {
+          try {
+            await browser.storage.local.set({
+              [STORAGE_KEY_TST_SEARCH_STATE]: {
+                active: true,
+                flattenedApplied: flattenedStateAppliedThisSearch,
+                originalTSTTreeStructureByWindow,
+                parents,
+                children,
+                collapsedParents,
+                timestamp: Date.now()
+              }
+            });
+          } catch (storageErr) {
+            console.warn('[TabSearch] Failed to persist TST search state:', storageErr);
+          }
         }
 
         // Defensive check: only proceed with expansion if we successfully snapshotted the state
@@ -915,13 +1014,28 @@ async function handlePopupClosed() {
 if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onConnect) {
   browser.runtime.onConnect.addListener((port) => {
     if (port.name === 'popup-lifecycle') {
-      port.onDisconnect.addListener(async () => {
-        try {
-          await handlePopupClosed();
-        } catch (err) {
-          console.warn('[TabSearch] Error handling popup lifecycle disconnect:', err);
-        }
-      });
+      if (port.onMessage && typeof port.onMessage.addListener === 'function') {
+        port.onMessage.addListener((msg) => {
+          if (msg && msg.type === 'heartbeat') {
+            try {
+              if (typeof port.postMessage === 'function') {
+                port.postMessage({ type: 'heartbeat-ack' });
+              }
+            } catch {
+              // Port might have closed
+            }
+          }
+        });
+      }
+      if (port.onDisconnect && typeof port.onDisconnect.addListener === 'function') {
+        port.onDisconnect.addListener(async () => {
+          try {
+            await handlePopupClosed();
+          } catch (err) {
+            console.warn('[TabSearch] Error handling popup lifecycle disconnect:', err);
+          }
+        });
+      }
     }
   });
 }
@@ -1064,6 +1178,11 @@ if (typeof module !== "undefined" && module.exports) {
     calculateTabsToHideAndShow,
     walkTSTTree,
     handlePopupClosed,
-    triggerInitialTabHide
+    triggerInitialTabHide,
+    restoreTabsToInitialState,
+    addFlattenedState,
+    removeFlattenedState,
+    resetSearchTrackingState,
+    STORAGE_KEY_TST_SEARCH_STATE
   };
 }

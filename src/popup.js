@@ -128,10 +128,27 @@ document.addEventListener('DOMContentLoaded', function() {
 console.warn('[TabSearch] popup.html opened at', new Date().toISOString());
 
 // Connect a lifecycle port to ensure popup close is reliably detected by the background script
-// even if asynchronous sendMessage calls in pagehide/unload are cancelled during process teardown
+// even if asynchronous sendMessage calls in pagehide/unload are cancelled during process teardown.
+// Also maintains an active heartbeat to keep the background event page alive during an open search.
+let lifecyclePort = null;
+let heartbeatIntervalId = null;
+const POPUP_HEARTBEAT_INTERVAL_MS = 10000; // 10s keep-alive interval for Firefox 30s idle timeout
+
 if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.connect) {
   try {
-    browser.runtime.connect({ name: 'popup-lifecycle' });
+    lifecyclePort = browser.runtime.connect({ name: 'popup-lifecycle' });
+    heartbeatIntervalId = setInterval(() => {
+      if (lifecyclePort) {
+        try {
+          lifecyclePort.postMessage({ type: 'heartbeat' });
+        } catch {
+          if (heartbeatIntervalId) {
+            clearInterval(heartbeatIntervalId);
+            heartbeatIntervalId = null;
+          }
+        }
+      }
+    }, POPUP_HEARTBEAT_INTERVAL_MS);
   } catch (err) {
     console.warn('[TabSearch] Failed to connect popup lifecycle port:', err);
   }
@@ -145,6 +162,11 @@ let popupCloseMessageSent = false;
  * @returns {void}
  */
 function notifyPopupClosed() {
+  if (heartbeatIntervalId) {
+    clearInterval(heartbeatIntervalId);
+    heartbeatIntervalId = null;
+  }
+
   if (popupCloseMessageSent) {
     return;
   }
