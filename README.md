@@ -130,7 +130,7 @@
 ## Changelog
 
 <details open>
-<summary><strong>v0.8.0.1 (2026-09-21) - Virtual Search Results Dashboard, Post-Install Permission Flow & MV3 TST Resilience</strong></summary>
+<summary><strong>v0.8.0.2 (2026-09-22) - Virtual Search Results Dashboard, Permission Streamlining & MV3 TST Resilience</strong></summary>
 
 ### Major Highlights
 
@@ -138,7 +138,9 @@
    - A high-performance alternative to traditional tab-hiding, designed specifically for older or resource-constrained machines and heavy multi-window browsing sessions. Consolidates all matching tabs across all windows into a single, clean dashboard tab without triggering mass tab strip reflows.
 2. **New Post-Install Onboarding & Permission Flow**:
    - A redesigned, elegant first-run experience to help Firefox grant the native `tabHide` permission. Rather than triggering tab-hiding unexpectedly on install, TabSearch displays an onboarding guide in the popup on first click, clearly explaining the Firefox permission requirement and instructing users to choose "Keep tabs hidden" before safely invoking the permission prompt.
-3. **TST Tree Visibility & State Restoration Resilience (Manifest V3 Lifecycle Fixes)**:
+3. **Permission Streamlining & Least Privilege Security**:
+   - Eliminated unused `host_permissions: ["<all_urls>"]` from `manifest.json`. This stops Firefox from showing the persistent green attention dot under the toolbar icon on startup, eliminates unnecessary optional permission warnings ("Access your data for all websites" and "Access local files on your computer") in `about:addons`, and ensures TabSearch strictly requests only the minimal permissions required (`tabs`, `tabHide`, `storage`, `find`).
+4. **TST Tree Visibility & State Restoration Resilience (Manifest V3 Lifecycle Fixes)**:
    - Fixed two lingering issues with Tree Style Tab (TST) integration where tree visibility and expanded/collapsed branch states were occasionally lost or corrupted. Because Manifest V3 aggressively unloads background scripts after 30 seconds of inactivity, TST hierarchy snapshots and search locks are now persisted directly into local storage for seamless state rehydration, backed by an active popup-lifecycle heartbeat to eliminate race conditions.
 
 ---
@@ -164,13 +166,19 @@
 - **Non-Disruptive Triggering**: Uses a temporary background tab to safely invoke Firefox's native permission doorhanger without shifting or disturbing the user's active browsing tabs.
 - **Deferred Execution**: Zero intrusive prompts during initial addon installation; triggers only when the user deliberately opens TabSearch for the first time.
 
-#### 3. Tree Style Tab (TST) Resilience & Manifest V3 Hardening
+#### 3. Permission Streamlining & Least Privilege Security
+- **Eliminated Unused Host Permissions**: Removed `host_permissions: ["<all_urls>"]` from `manifest.json`.
+- **Eliminated Attention Dot & Optional Prompts**: Stops Firefox from displaying the green attention dot under the extension toolbar icon on startup and eliminates optional permission prompts in `about:addons`.
+- **Updated Privacy Guarantees**: Updated `privacy.html` documentation to explicitly guarantee zero host, website, or local file access.
+- **Manifest Integrity Tests**: Added automated unit test suite (`tests/manifest.test.js`) verifying strict minimal permissions and version synchronization between `package.json` and `manifest.json`.
+
+#### 4. Tree Style Tab (TST) Resilience & Manifest V3 Hardening
 - **Storage-Backed State Rehydration**: Serializes pre-search TST tree snapshots and active search locks to `browser.storage.local`, ensuring tree structures can be restored even if the background page is terminated by Firefox's 30-second MV3 idle timer.
 - **Popup-Lifecycle Port Heartbeat**: Maintains an active communication port between popup and background scripts during search sessions to prevent premature background script suspension.
 - **Search Queue & Lock Guarding**: Intercepts rapid keyboard input to process searches sequentially and avoids snapshot overwriting during rapid popup open/close transitions.
 - **Restoration Grace Window**: Added delayed restoration safeguards to handle out-of-order Firefox tab activation events when closing the search popup.
 
-#### 4. Search Defaults & Performance
+#### 5. Search Defaults & Performance
 - **Content Search Default**: Default search scope set to URL and title only (`searchContents: false`), dramatically speeding up searches across large tab sets while allowing users to opt into deep page-content searches when needed.
 - **Fuzzy Search Threshold Tuning**: Fine-tuned default threshold for Fuse.js token matching to maximize relevant matches while minimizing noise.
 </details>
