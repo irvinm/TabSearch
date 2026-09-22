@@ -15,6 +15,7 @@
 - Hide all non-matching tabs for a focused search experience.
 - Tab hiding is temporary: all tabs are restored when the search is cleared or the popup is closed.
 - Never hides pinned or active tabs.
+- **Native Tab Groups**: Firefox's `tabs.hide()` API operates on individual tabs, not group headers. In classic tab-hiding mode, Firefox currently leaves the native tab group header visible on the tab strip even if all member tabs within that group are hidden (Firefox platform limitation). Use the **Virtual Search Results Dashboard** mode to avoid seeing empty tab group headers.
 
 ### Search Behavior
 
@@ -181,6 +182,9 @@
 #### 5. Search Defaults & Performance
 - **Content Search Default**: Default search scope set to URL and title only (`searchContents: false`), dramatically speeding up searches across large tab sets while allowing users to opt into deep page-content searches when needed.
 - **Fuzzy Search Threshold Tuning**: Fine-tuned default threshold for Fuse.js token matching to maximize relevant matches while minimizing noise.
+
+#### 6. Documentation & Known Platform Limitations
+- **Firefox Native Tab Groups Limitation**: Documented that Firefox leaves native tab group headers visible on the tab strip during tab-hiding searches even when all child tabs are hidden, as Firefox currently lacks an API to hide group headers (recommending the Virtual Dashboard mode as an alternative).
 </details>
 
 <details>

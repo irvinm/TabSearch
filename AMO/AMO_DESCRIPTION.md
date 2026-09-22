@@ -39,6 +39,7 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 - Page content search works on loaded, regular web pages (requires at least 3 characters)
 - Supports both standard substring matching and typo-tolerant fuzzy matching
 - Pinned and active tabs are never hidden
+- **Native Tab Groups**: When using classic tab hiding mode, Firefox currently leaves the native tab group header visible on the tab strip even if all member tabs are hidden (Firefox platform limitation; use the Virtual Dashboard mode if you prefer not to see empty group headers)
 
 **Support and source**
 - Source and issues: [GitHub - irvinm/TabSearch](https://github.com/irvinm/TabSearch)
