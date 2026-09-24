@@ -7,7 +7,7 @@ Find tabs fast by title, URL, or page text. View results in a dedicated Virtual 
 Whether you have dozens or hundreds of tabs across multiple windows, Tab Search lets you quickly find what you need. Choose between a dedicated **Virtual Search Results Dashboard** or classic **Tab Hiding** mode to streamline your browsing.
 
 **Two Ways to Search**
-- **Virtual Search Results Dashboard**: Consolidates matches from all windows into a single, clean dashboard tab. Groups tabs by window, supports instant jump/activation, keyboard navigation (Arrow Up/Down, Enter), collapsible window groups, and live sync as tabs open or close. Automatically closes when you switch away (or stays open if preferred).
+- **Virtual Search Results Dashboard**: Consolidates matches from all windows into a single, clean dashboard tab. Groups tabs by window, supports instant jump/activation, keyboard navigation (Arrow Up/Down, Enter), collapsible window groups, and live sync as tabs open or close. Automatically closes when you switch away (or stays open if preferred). Displays clear "Pinned" badges for pinned tabs.
 - **Tab Hiding Mode**: Temporarily hides non-matching tabs directly in your browser tab strip for a clutter-free view, then restores all tabs when your search ends.
 
 **What you can do**
@@ -38,7 +38,7 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 **Important notes**
 - Page content search works on loaded, regular web pages (requires at least 3 characters)
 - Supports both standard substring matching and typo-tolerant fuzzy matching
-- Pinned and active tabs are never hidden
+- Pinned and active tabs are never hidden: Firefox's `tabs.hide()` API strictly prohibits hiding pinned tabs and the active tab in each window. In classic tab-hiding mode, they remain visible on your tab strip even when non-matching. In the Virtual Search Results Dashboard, matching pinned tabs are included and highlighted with an accessible "Pinned" badge.
 - **Native Tab Groups**: When using classic tab hiding mode, Firefox currently leaves the native tab group header visible on the tab strip even if all member tabs are hidden (Firefox platform limitation; use the Virtual Dashboard mode if you prefer not to see empty group headers)
 
 **Support and source**

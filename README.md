@@ -14,7 +14,7 @@
 - **Fuzzy Matching**: Powered by Fuse.js v7.3.0 with Token Search for superior multi-word matching (e.g., "Mail Google" finds "Google Mail") and a configurable threshold slider (0.0 to 1.0).
 - Hide all non-matching tabs for a focused search experience.
 - Tab hiding is temporary: all tabs are restored when the search is cleared or the popup is closed.
-- Never hides pinned or active tabs.
+- **Pinned and Active Tabs Safety**: Firefox's `tabs.hide()` WebExtension API strictly prohibits hiding pinned tabs (`tab.pinned === true`) and currently active tabs (`tab.active === true`). In classic tab-hiding mode, any pinned tabs and the active tab will always remain visible on your tab strip even if they do not match your search query.
 - **Native Tab Groups**: Firefox's `tabs.hide()` API operates on individual tabs, not group headers. In classic tab-hiding mode, Firefox currently leaves the native tab group header visible on the tab strip even if all member tabs within that group are hidden (Firefox platform limitation). Use the **Virtual Search Results Dashboard** mode to avoid seeing empty tab group headers.
 
 ### Search Behavior
@@ -49,6 +49,7 @@
     - Dedicated Mozilla Photon SVG icons for protected internal pages (`about:addons`, `about:preferences`, `about:config`, `about:downloads`, `about:history`, `about:bookmarks`, `about:debugging`, `about:support`).
     - Neutral Firefox globe fallback for web pages without a favicon.
     - Adaptive light/dark theme support for all embedded SVGs.
+- **Pinned Tabs Support & Visual Badges**: Matching pinned tabs are included in search results without modifying the tab strip, and are prominently tagged with a dedicated "Pinned" badge.
 
 ### Tree Style Tab (Optional)
 
@@ -131,6 +132,13 @@
 ## Changelog
 
 <details open>
+<summary><strong>v0.8.0.3 (2026-09-24) - Pinned Tab Visual Indicators & Documentation Updates</strong></summary>
+
+- **Pinned Tab Badges in Virtual Dashboard**: Displays an accessible "Pinned" badge with an authentic SVG pushpin icon on matching pinned tabs in the Virtual Search Results Dashboard.
+- **Clarified Firefox `tabs.hide()` Constraints**: Documented across `README.md`, `AMO_DESCRIPTION.md`, and `privacy.html` that Firefox strictly prohibits hiding pinned tabs and active tabs, explaining why non-matching pinned tabs remain visible in classic tab-hiding mode and how the Virtual Dashboard provides full visibility.
+</details>
+
+<details>
 <summary><strong>v0.8.0.2 (2026-09-22) - Virtual Search Results Dashboard, Permission Streamlining & MV3 TST Resilience</strong></summary>
 
 ### Major Highlights
@@ -159,6 +167,7 @@
 - **Configurable Auto-Close**: Option to automatically close the dashboard tab when switching away to another tab or defocusing the window ("Keep dashboard open after selecting a tab").
 - **Live Tab Lifecycle Sync**: Dynamic updates as tabs are created, updated, removed, moved, attached, or detached across windows.
 - **Authentic Firefox & Photon Branding**: Full-color Firefox logos for `about:blank`/`about:newtab`, dedicated Mozilla Photon SVGs for internal pages (`about:addons`, `about:preferences`, etc.), and clean globe fallbacks.
+- **Pinned Tab Support & Visual Badges**: Matching pinned tabs are included in search results without modifying the tab strip, and are clearly tagged with an accessible "Pinned" badge.
 - **Popup Synchronization**: Popup automatically disables and grays out non-applicable tab-hiding options when Virtual Dashboard mode is active.
 
 #### 2. Post-Install Onboarding & Permission Workflow
@@ -185,6 +194,7 @@
 
 #### 6. Documentation & Known Platform Limitations
 - **Firefox Native Tab Groups Limitation**: Documented that Firefox leaves native tab group headers visible on the tab strip during tab-hiding searches even when all child tabs are hidden, as Firefox currently lacks an API to hide group headers (recommending the Virtual Dashboard mode as an alternative).
+- **Firefox tabs.hide() Pinned & Active Tabs Restriction**: Clarified that Firefox's `tabs.hide()` WebExtension API strictly prohibits hiding pinned tabs and the currently active tab. In classic tab-hiding mode, non-matching pinned tabs remain visible on the tab strip by design. In Virtual Dashboard mode, matching pinned tabs are included in search results and prominently labeled with a "Pinned" badge.
 </details>
 
 <details>
