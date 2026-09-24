@@ -26,8 +26,9 @@
     - Search-affecting options are: Search URLs, Search tab titles, Search contents of loaded tabs, Virtual search results dashboard, Real-time search, Fuzzy matching, Support for Tree Style Tab (TST), and Auto-expand trees with matched tabs.
     - "Select all matching tabs on close" and "Disable initial hide action" do not interrupt an in-progress search.
 
-### Keyboard and Productivity
+### Keyboard, Appearance, and Productivity
 
+- **Dark Theme with Sun/Moon Toggle**: One-click Sun/Moon toggle button in both the extension popup and Virtual Dashboard header with seamless, real-time bidirectional synchronization between both views. Defaults to following the system or browser's dark mode preference (`prefers-color-scheme: dark`) with manual override support.
 - Keyboard shortcut to open the search dialog.
     - Customizable via about:addons -> gear -> Manage Extension Shortcuts.
 - Audio tab search: quickly find and focus tabs playing audio.
@@ -132,6 +133,20 @@
 ## Changelog
 
 <details open>
+<summary><strong>v0.8.0.4 (2026-09-24) - Dark Theme Mode, Sun/Moon Quick Toggle & Cross-View Sync</strong></summary>
+
+- **Dark Theme Mode with Sun/Moon Toggle**:
+    - Added an accessible Sun/Moon toggle button to both the extension popup search bar and the Virtual Search Results Dashboard header.
+    - Allows users to seamlessly switch between light and dark modes with a single click.
+    - System-adaptive by default: Automatically follows the user's OS and Firefox dark mode preferences (`prefers-color-scheme: dark`) when unset, while honoring manual overrides via persistent local storage.
+- **Cross-View Real-Time Synchronization**:
+    - Toggling the theme from either the popup or the Virtual Dashboard instantly updates both interfaces in real time via `browser.storage.onChanged`.
+- **Theme-Aware UI Components**:
+    - Fully styled dark palette across all popup elements: search input, buttons, fieldsets, legends, range sliders, info SVGs, first-run permission onboarding screen, and the no-audio modal overlay.
+    - Configured `color-scheme: dark` / `color-scheme: light` to ensure native Firefox scrollbars and checkboxes adapt automatically.
+</details>
+
+<details>
 <summary><strong>v0.8.0.3 (2026-09-24) - Pinned Tab Visual Indicators & Documentation Updates</strong></summary>
 
 - **Pinned Tab Badges in Virtual Dashboard**: Displays an accessible "Pinned" badge with an authentic SVG pushpin icon on matching pinned tabs in the Virtual Search Results Dashboard.

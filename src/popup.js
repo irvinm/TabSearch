@@ -39,7 +39,7 @@ function showNoAudioTabsMessage() {
   overlay.style.left = 0;
   overlay.style.width = '100vw';
   overlay.style.height = '100vh';
-  overlay.style.background = 'rgba(255,255,255,0.92)';
+  overlay.style.background = 'var(--popup-modal-bg, rgba(255,255,255,0.92))';
   overlay.style.display = 'flex';
   overlay.style.flexDirection = 'column';
   overlay.style.alignItems = 'center';
@@ -60,7 +60,7 @@ function showNoAudioTabsMessage() {
   let msg = document.createElement('div');
   msg.textContent = 'No tabs are currently playing audio.';
   msg.style.fontSize = '18px';
-  msg.style.color = '#2366d1';
+  msg.style.color = 'var(--popup-primary, #2366d1)';
   msg.style.marginBottom = '12px';
 
   // Dismiss button
@@ -117,12 +117,155 @@ function searchAudioTabs() {
     });
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-  var audioBtn = document.getElementById('audio-search-btn');
-  if (audioBtn) {
-    audioBtn.addEventListener('click', searchAudioTabs);
+let currentStoredTheme = undefined;
+
+/**
+ * Resolves the effective theme ('dark' or 'light') based on explicit user preference or system color scheme.
+ *
+ * @param {string|undefined} storedTheme - The persisted theme preference ('dark', 'light', or undefined).
+ * @returns {string} The effective theme ('dark' or 'light').
+ */
+function getEffectiveTheme(storedTheme) {
+  if (storedTheme === 'dark' || storedTheme === 'light') {
+    return storedTheme;
   }
-});
+  if (typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
+
+/**
+ * Applies the specified theme to the document and updates the theme toggle button icon and accessible title.
+ *
+ * @param {string} theme - The theme to apply ('dark' or 'light').
+ * @param {HTMLElement|null} [toggleBtn] - The theme toggle button element, if available.
+ * @returns {void}
+ */
+function applyTheme(theme, toggleBtn) {
+  if (typeof document !== 'undefined' && document.documentElement && typeof document.documentElement.setAttribute === 'function') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+  const btn = toggleBtn || (typeof document !== 'undefined' && document.getElementById ? document.getElementById('theme-toggle-btn') : null);
+  if (!btn) return;
+  const isDark = theme === 'dark';
+  btn.title = isDark ? 'Switch to light theme' : 'Switch to dark theme';
+  if (typeof btn.setAttribute === 'function') {
+    btn.setAttribute('aria-label', btn.title);
+  }
+
+  // Clear existing icon content safely without innerHTML
+  if (typeof btn.removeChild === 'function') {
+    while (btn.firstChild) {
+      btn.removeChild(btn.firstChild);
+    }
+  }
+
+  if (typeof btn.appendChild === 'function' && typeof document !== 'undefined' && typeof document.createElementNS === 'function') {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', '22');
+    svg.setAttribute('height', '22');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+
+    if (isDark) {
+      // Sun icon
+      if (svg.classList) {
+        svg.classList.add('theme-icon-sun');
+      }
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx', '12');
+      circle.setAttribute('cy', '12');
+      circle.setAttribute('r', '5');
+      svg.appendChild(circle);
+
+      const rays = [
+        ['12', '1', '12', '3'],
+        ['12', '21', '12', '23'],
+        ['4.22', '4.22', '5.64', '5.64'],
+        ['18.36', '18.36', '19.78', '19.78'],
+        ['1', '12', '3', '12'],
+        ['21', '12', '23', '12'],
+        ['4.22', '19.78', '5.64', '18.36'],
+        ['18.36', '5.64', '19.78', '4.22']
+      ];
+      rays.forEach(([x1, y1, x2, y2]) => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        svg.appendChild(line);
+      });
+    } else {
+      // Moon icon
+      if (svg.classList) {
+        svg.classList.add('theme-icon-moon');
+      }
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z');
+      svg.appendChild(path);
+    }
+    btn.appendChild(svg);
+  }
+}
+
+/**
+ * Toggles between 'dark' and 'light' theme, updates the UI, and persists the choice to browser storage.
+ *
+ * @param {string} currentEffectiveTheme - The currently active effective theme ('dark' or 'light').
+ * @param {function(string): void} [onSave] - Optional callback receiving the newly persisted theme.
+ * @returns {string} The newly selected theme.
+ */
+function toggleTheme(currentEffectiveTheme, onSave) {
+  const newTheme = currentEffectiveTheme === 'dark' ? 'light' : 'dark';
+  applyTheme(newTheme);
+  if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+    browser.storage.local.set({ theme: newTheme }).catch((err) => {
+      console.error('[TabSearch] Error saving theme:', err);
+    });
+  }
+  if (typeof onSave === 'function') {
+    onSave(newTheme);
+  }
+  return newTheme;
+}
+
+// Early theme initialization to eliminate white flash
+if (typeof browser !== 'undefined' && browser.storage && browser.storage.local) {
+  browser.storage.local.get(['theme']).then((res) => {
+    if (res && res.theme !== undefined) {
+      currentStoredTheme = res.theme;
+    }
+    applyTheme(getEffectiveTheme(currentStoredTheme));
+  }).catch(() => {
+    applyTheme(getEffectiveTheme(undefined));
+  });
+} else {
+  applyTheme(getEffectiveTheme(undefined));
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', function() {
+    var audioBtn = document.getElementById('audio-search-btn');
+    if (audioBtn) {
+      audioBtn.addEventListener('click', searchAudioTabs);
+    }
+    var themeBtn = document.getElementById('theme-toggle-btn');
+    if (themeBtn) {
+      themeBtn.addEventListener('click', function() {
+        const effective = getEffectiveTheme(currentStoredTheme);
+        currentStoredTheme = toggleTheme(effective, function(newTheme) {
+          currentStoredTheme = newTheme;
+        });
+      });
+    }
+  });
+}
 
 // Log when popup.html is opened
 console.warn('[TabSearch] popup.html opened at', new Date().toISOString());
@@ -273,7 +416,7 @@ function saveOptions(options) {
  */
 function loadOptions(callback) {
   if (browser && browser.storage && browser.storage.local) {
-    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen", "hasCompletedIntroPrompt"]).then(callback);
+    browser.storage.local.get(["searchUrls", "searchTitles", "searchContents", "realtimeSearch", "fuzzySearch", "fuzzyThreshold", "disableEmptyTab", "selectMatchingTabs", "tstSupport", "tstAutoExpand", "virtualDashboard", "keepDashboardOpen", "hasCompletedIntroPrompt", "theme"]).then(callback);
   }
 }
 
@@ -427,6 +570,10 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('tst-support').checked = tstSupportChecked;
     document.getElementById('tst-auto-expand').checked = tstAutoExpandChecked;
     document.getElementById('virtual-dashboard').checked = virtualDashboardChecked;
+    if (items.theme !== undefined) {
+      currentStoredTheme = items.theme;
+      applyTheme(getEffectiveTheme(currentStoredTheme));
+    }
 
     const tstAutoExpandRow = document.getElementById('tst-auto-expand-row');
     const tstAutoExpandInput = document.getElementById('tst-auto-expand');
@@ -652,6 +799,10 @@ window.addEventListener('DOMContentLoaded', function() {
   // Listen for storage changes to sync preferences in real-time
   if (typeof browser !== 'undefined' && browser.storage && browser.storage.onChanged) {
     browser.storage.onChanged.addListener((changes) => {
+      if (changes.theme) {
+        currentStoredTheme = changes.theme.newValue;
+        applyTheme(getEffectiveTheme(currentStoredTheme));
+      }
       let optionsChanged = false;
       const keys = [
         'searchUrls', 'searchTitles', 'searchContents', 'realtimeSearch',
@@ -744,4 +895,12 @@ function doSearch() {
       // window.close(); // Optional: close popup after search
     }
   }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    getEffectiveTheme,
+    applyTheme,
+    toggleTheme
+  };
 }

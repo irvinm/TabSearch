@@ -18,7 +18,7 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 - Authentic native Firefox icons: full-color Firefox logos for `about:newtab`/`about:blank` and Photon SVGs for `about:addons`, `about:preferences`, and developer tools
 - Optionally multi-select all matching tabs when the search session ends
 - Progress counter on the toolbar icon badge while tabs are processed
-- Clean, theme-aware design supporting both Light and Dark modes
+- **Dark Theme with Sun/Moon Toggle**: One-click quick theme toggle in both the popup and Virtual Dashboard with real-time bidirectional synchronization, plus automatic system dark mode detection
 - Theme-responsive documentation and help guides
 - Guided post-install setup: clear first-run onboarding walks you through granting Firefox's tab-hiding permission
 
