@@ -441,7 +441,7 @@ function updateDisabledOptionsState() {
     const input = document.getElementById(id);
     if (input) {
       input.disabled = virtualDashboard;
-      const label = input.closest('label');
+      const label = typeof input.closest === 'function' ? input.closest('label') : null;
       if (label) {
         if (virtualDashboard) {
           label.classList.add('disabled-label');
@@ -458,7 +458,7 @@ function updateDisabledOptionsState() {
   if (tstAutoExpandInput) {
     const shouldDisableTSTSub = virtualDashboard || !tstSupportChecked;
     tstAutoExpandInput.disabled = shouldDisableTSTSub;
-    const label = tstAutoExpandInput.closest('label');
+    const label = typeof tstAutoExpandInput.closest === 'function' ? tstAutoExpandInput.closest('label') : null;
     if (label) {
       if (shouldDisableTSTSub) {
         label.classList.add('disabled-label');
@@ -473,7 +473,8 @@ function updateDisabledOptionsState() {
 }
 
 /**
- * Updates search button enabled state and search input disabled state based on active configuration.
+ * Updates search button enabled state (if present in DOM), search input disabled state,
+ * and contextual search placeholder text based on active configuration.
  *
  * @returns {void}
  */
@@ -490,10 +491,17 @@ function updateSearchButtonState() {
   // Disable/grey out irrelevant options in virtual dashboard mode
   updateDisabledOptionsState();
 
-  // Enable search button if virtual dashboard is active, otherwise disable it when real-time search is active
-  searchBtn.disabled = !virtualDashboard && !!realtimeChecked;
+  // Enable search button if present and virtual dashboard is active, otherwise disable it when real-time search is active
+  if (searchBtn) {
+    searchBtn.disabled = !virtualDashboard && !!realtimeChecked;
+  }
   if (searchInput) {
     searchInput.disabled = !enableSearch;
+    if (virtualDashboard || !realtimeChecked) {
+      searchInput.placeholder = 'Search Term (Press Enter)';
+    } else {
+      searchInput.placeholder = 'Search Term';
+    }
   }
 }
 
@@ -514,10 +522,13 @@ document.getElementById('search').addEventListener('keydown', function(e) {
   }
 });
 
-document.getElementById('search-btn').addEventListener('click', function(e) {
-  e.preventDefault();
-  doSearch();
-});
+const searchBtn = document.getElementById('search-btn');
+if (searchBtn) {
+  searchBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    doSearch();
+  });
+}
 
 // Prevent Tab key from changing focus between elements in the popup (allow on intro screen)
 window.addEventListener('keydown', function(event) {

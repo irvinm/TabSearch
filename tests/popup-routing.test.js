@@ -52,6 +52,8 @@ function loadPopup(values = {}) {
   return {
     closeCount: () => closeCount,
     doSearch: vm.runInContext('doSearch', context),
+    updateSearchButtonState: vm.runInContext('updateSearchButtonState', context),
+    element,
     messages
   };
 }
@@ -130,4 +132,26 @@ test('doSearch skips a blank traditional query unless real-time search is enable
   assert.equal(realtimePopup.messages.length, 1);
   assert.equal(realtimePopup.messages[0].action, 'search-tabs');
   assert.equal(realtimePopup.messages[0].term, '');
+});
+
+test('updateSearchButtonState dynamically toggles search input placeholder', () => {
+  const realtimePopup = loadPopup(searchControls({
+    'realtime-search': { checked: true },
+    'virtual-dashboard': { checked: false }
+  }));
+  const searchInput = realtimePopup.element('search');
+
+  realtimePopup.updateSearchButtonState();
+  assert.equal(searchInput.placeholder, 'Search Term');
+
+  // When virtual dashboard is activated, placeholder indicates Enter key
+  realtimePopup.element('virtual-dashboard').checked = true;
+  realtimePopup.updateSearchButtonState();
+  assert.equal(searchInput.placeholder, 'Search Term (Press Enter)');
+
+  // When virtual dashboard is off and real-time is off, also prompts Press Enter
+  realtimePopup.element('virtual-dashboard').checked = false;
+  realtimePopup.element('realtime-search').checked = false;
+  realtimePopup.updateSearchButtonState();
+  assert.equal(searchInput.placeholder, 'Search Term (Press Enter)');
 });
