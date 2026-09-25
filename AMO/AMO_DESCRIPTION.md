@@ -13,7 +13,8 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 **What you can do**
 - Search open tabs across all windows by URL, title, or page text (content search)
 - **Fuzzy matching**: Typo-tolerant search with multi-word support (Powered by Fuse.js v7.3.0) with an adjustable threshold slider
-- Real-time filtering while typing or on-demand manual search
+- Real-time filtering while typing or on-demand manual search (with dynamic placeholder guidance and Enter key execution)
+- Streamlined compact popup design with intuitive visual tree connectors for nested options (fuzzy threshold slider and Tree Style Tab controls)
 - Audio tab search: quickly locate and switch to tabs playing audio
 - Authentic native Firefox icons: full-color Firefox logos for `about:newtab`/`about:blank` and Photon SVGs for `about:addons`, `about:preferences`, and developer tools
 - Optionally multi-select all matching tabs when the search session ends

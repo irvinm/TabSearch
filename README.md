@@ -29,6 +29,8 @@
 ### Keyboard, Appearance, and Productivity
 
 - **Dark Theme with Sun/Moon Toggle**: One-click Sun/Moon toggle button in both the extension popup and Virtual Dashboard header with seamless, real-time bidirectional synchronization between both views. Defaults to following the system or browser's dark mode preference (`prefers-color-scheme: dark`) with manual override support.
+- **Streamlined Search Bar & Dynamic Placeholder**: Dedicated search input maximizes typing space with natural `Enter` key execution in place of a redundant search button. The placeholder dynamically guides users with `"Search Term"` during real-time filtering and `"Search Term (Press Enter)"` when manual execution or Virtual Dashboard mode is enabled.
+- **Unified Sub-Option Tree Hierarchy**: Clean, accessible tree connectors (`└──`) visually nest child sub-options (the fuzzy matching threshold slider and Tree Style Tab auto-expand option) beneath their parent checkboxes with dedicated rows that prevent text wrapping.
 - Keyboard shortcut to open the search dialog.
     - Customizable via about:addons -> gear -> Manage Extension Shortcuts.
 - Audio tab search: quickly find and focus tabs playing audio.
@@ -133,7 +135,7 @@
 ## Changelog
 
 <details open>
-<summary><strong>v0.8.0.4 (2026-09-24) - Dark Theme Mode, Sun/Moon Quick Toggle & Cross-View Sync</strong></summary>
+<summary><strong>v0.8.0.4 (2026-09-24) - Dark Theme Mode, Popup Layout Streamlining & Tree Sub-Options</strong></summary>
 
 - **Dark Theme Mode with Sun/Moon Toggle**:
     - Added an accessible Sun/Moon toggle button to both the extension popup search bar and the Virtual Search Results Dashboard header.
@@ -144,6 +146,12 @@
 - **Theme-Aware UI Components**:
     - Fully styled dark palette across all popup elements: search input, buttons, fieldsets, legends, range sliders, info SVGs, first-run permission onboarding screen, and the no-audio modal overlay.
     - Configured `color-scheme: dark` / `color-scheme: light` to ensure native Firefox scrollbars and checkboxes adapt automatically.
+- **Popup Layout Streamlining & Dynamic Search Placeholder**:
+    - Removed the redundant "Search" submit button in favor of natural `Enter` key submission, keeping the popup compact and proportional (~330px–380px) alongside the theme toggle and audio buttons.
+    - Added context-aware placeholder text: automatically switches to `"Search Term"` during real-time filtering and `"Search Term (Press Enter)"` when manual searching or the Virtual Dashboard is active.
+- **Unified Sub-Option Tree Branches**:
+    - Extracted the Fuzzy matching threshold slider into its own dedicated sub-row to eliminate awkward text wrapping when fuzzy search is enabled.
+    - Unified visual tree branch styling (`└──`) for both Fuzzy matching and TST auto-expand options with clean vertical stems centered beneath parent checkboxes and safe stacking contexts.
 </details>
 
 <details>
