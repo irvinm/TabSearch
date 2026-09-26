@@ -61,7 +61,7 @@ This guide details the scenarios to verify the Virtual Search Results Dashboard 
 1. Open **50+ windows** with **500+ tabs** total (distinct titles/URLs), or use a script to create them.
 2. Open the popup, enter a search term that matches a large subset of tabs, and click **Search**.
 3. **Expected Outcome (SC-001)**: The dashboard tab renders all matching tabs grouped by window in **under 1 second** from initiating the search (URL/title/fuzzy matching; content search excluded).
-   * *Measurement*: In the dashboard's DevTools console, log `performance.now()` at the moment the first result is painted and at the moment the search was initiated (or use the Network/Performance panel). The delta must be < 1000ms.
+   * *Measurement*: Record absolute timestamps (`performance.timeOrigin + performance.now()` or `Date.now()`) at the moment search is clicked in the popup and when the first result is painted in the dashboard (or use the DevTools Performance panel). The delta must be < 1000ms.
 4. With the dashboard open and focused on the search input, type a single character.
 5. **Expected Outcome (SC-004)**: The results list updates in **under 100ms** from the keypress (URL/title/fuzzy matching; content search excluded).
    * *Measurement*: In the dashboard's DevTools console, wrap the keyup handler with `const t0 = performance.now();` and log `performance.now() - t0` after the list re-renders. The value must be < 100ms.
