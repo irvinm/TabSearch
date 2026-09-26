@@ -260,7 +260,8 @@ test('common.css and search-results.html define total-summary badge and styling 
   assert.match(CSS_SOURCE, /\.dashboard-search-area\s*\{[^}]*display:\s*flex/);
   assert.match(CSS_SOURCE, /\.dashboard-total-summary\s*\{[^}]*display:\s*flex/);
   assert.match(CSS_SOURCE, /\.window-badge\s*\{[^}]*display:\s*inline-block/);
-  assert.match(CSS_SOURCE, /\.window-badge\s*\{[^}]*background:\s*var\(--dash-primary\)/);
+  assert.match(CSS_SOURCE, /\.window-badge\s*\{[^}]*background:\s*var\(--dash-badge-bg,\s*var\(--dash-primary\)\)/);
+  assert.match(CSS_SOURCE, /--dash-badge-bg:\s*#2366d1;/);
   assert.match(CSS_SOURCE, /\.window-toggle-icon[^{]*\{[^}]*display:\s*inline-block/);
   assert.match(CSS_SOURCE, /\.window-toggle-icon[^{]*\{[^}]*transition:\s*transform/);
   assert.match(CSS_SOURCE, /\.window-section\.collapsed\s+\.window-toggle-icon[^{]*\{[^}]*transform:\s*rotate\(-90deg\)/);

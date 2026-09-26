@@ -40,6 +40,7 @@
   --pinned-badge-bg: rgba(35, 102, 209, 0.12);
   --pinned-badge-color: var(--dash-primary);
   --pinned-badge-border: rgba(35, 102, 209, 0.25);
+  --dash-badge-bg: var(--dash-primary);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -83,6 +84,7 @@
     --pinned-badge-bg: rgba(96, 165, 250, 0.15);
     --pinned-badge-color: #93c5fd;
     --pinned-badge-border: rgba(96, 165, 250, 0.3);
+    --dash-badge-bg: #2366d1;
   }
 }
 
@@ -126,6 +128,7 @@
   --pinned-badge-bg: rgba(96, 165, 250, 0.15);
   --pinned-badge-color: #93c5fd;
   --pinned-badge-border: rgba(96, 165, 250, 0.3);
+  --dash-badge-bg: #2366d1;
 }
 
 :root[data-theme="light"] {
@@ -169,6 +172,7 @@
   --pinned-badge-bg: rgba(35, 102, 209, 0.12);
   --pinned-badge-color: var(--dash-primary);
   --pinned-badge-border: rgba(35, 102, 209, 0.25);
+  --dash-badge-bg: var(--dash-primary);
 }
 
 .icon-btn#audio-search-btn,
@@ -757,7 +761,7 @@ code {
 }
 
 .window-badge {
-  background: var(--dash-primary);
+  background: var(--dash-badge-bg, var(--dash-primary));
   color: #ffffff;
   font-size: 12px;
   padding: 2px 8px;
