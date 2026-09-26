@@ -302,10 +302,16 @@ test('triggerInitialTabHide force parameter bypasses disableEmptyTab opt-out', a
 });
 
 test('addon install / load never triggers tab hiding automatically', async () => {
-  const { calls } = loadBackground({
+  const { calls, events } = loadBackground({
     storageGet: async () => ({ virtualDashboard: false, disableEmptyTab: false }),
     createTab: async (createProperties) => ({ id: 99, windowId: 7, ...createProperties })
   });
+
+  if (events.onInstalled.listener) {
+    await events.onInstalled.listener({ reason: 'install' });
+  }
+  // Let any fire-and-forget async work settle before asserting.
+  await new Promise(resolve => setImmediate(resolve));
 
   // Zero tabs created or hidden on install/load
   assert.equal(calls.created.length, 0);
