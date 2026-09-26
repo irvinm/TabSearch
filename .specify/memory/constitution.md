@@ -7,19 +7,15 @@
     review and updates to both README.md and AMO/AMO_DESCRIPTION.md; Section 3
     (Development Workflow & Quality Gates) expanded to include explicit Automated
     Testing and Documentation Review gates.
-  Version change: 1.2.0 -> 1.3.0
-  Bump rationale: MINOR — Principle V (Verification) amended to mandate JSDoc
-    docstrings on all touched or new functions to meet the 80% coverage threshold;
-    Section 3 (Development Workflow & Quality Gates) expanded to include explicit
-    Docstring & JSDoc Coverage Gate.
+  Version change: 1.3.0 -> 1.4.0
+  Bump rationale: MINOR — Principle VII (Versioning & Release Hygiene) amended
+    to explicitly permit an optional 4th component (MAJOR.MINOR.PATCH.BUILD)
+    for pre-release AMO test signing while retaining MAJOR.MINOR.PATCH for public releases.
   Modified principles (this amendment):
-    - V. Verification (NON-NEGOTIABLE) -> Added mandatory unit testing requirement
-    - VII. Versioning & Release Hygiene -> Added mandatory README.md and AMO_DESCRIPTION.md review
-    - V. Verification (NON-NEGOTIABLE) -> Added mandatory JSDoc docstring coverage (>= 80%)
-  Modified sections (this amendment):
-    - Development Workflow & Quality Gates (Added Automated Testing Gate & Documentation Review Gate)
-    - Development Workflow & Quality Gates (Added Docstring & JSDoc Coverage Gate)
+    - VII. Versioning & Release Hygiene -> Permitted optional 4th component for pre-release AMO signing
+  Modified sections (this amendment): none
   Prior history:
+    - 1.3.0 (2026-09-12): Added docstring & JSDoc coverage gate (>= 80%).
     - 1.2.0 (2026-09-12): Added automated testing and documentation review gates.
     - 1.1.0 (2026-09-12): Principle II redefined to "Firefox-Only Target".
     - 1.0.0 (2026-08-28): First ratification; established 7-principle set.
@@ -81,11 +77,12 @@ fetches) to keep the extension self-contained.
 
 ### VII. Versioning & Release Hygiene
 The extension version in `package.json` and `src/manifest.json` MUST follow
-Semantic Versioning (MAJOR.MINOR.PATCH) and MUST stay in sync. Every release
-MUST include a changelog entry in the README and a built `.xpi` artifact in
-`web-ext-artifacts/`. All new features, options, or behavior changes MUST
-review and synchronize both `README.md` (user documentation and changelog) and
-`AMO/AMO_DESCRIPTION.md` (Add-on store listing). Breaking changes to user-facing
+Semantic Versioning (MAJOR.MINOR.PATCH) for public releases and MUST stay in sync.
+An optional 4th component (MAJOR.MINOR.PATCH.BUILD) is permitted during pre-release
+AMO test signing. Every release MUST include a changelog entry in the README and a
+built `.xpi` artifact in `web-ext-artifacts/`. All new features, options, or behavior
+changes MUST review and synchronize both `README.md` (user documentation and changelog)
+and `AMO/AMO_DESCRIPTION.md` (Add-on store listing). Breaking changes to user-facing
 behavior or storage keys MUST bump MAJOR and be called out in the changelog.
 
 ## Technology & Platform Constraints
@@ -126,4 +123,4 @@ Semantic Versioning rules in Principle VII, and (3) propagation of any changed
 principle across the dependent templates and active feature artifacts.
 Compliance is verified at the plan gate and again before release.
 
-**Version**: 1.3.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-12
+**Version**: 1.4.0 | **Ratified**: 2026-08-28 | **Last Amended**: 2026-09-26

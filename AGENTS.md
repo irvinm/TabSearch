@@ -51,4 +51,5 @@ You are assisting development on **TabSearch**, a lightweight, Firefox-focused W
 - **Documentation Review Gate**: For any new feature, option, or behavior change, explicitly review and update both `README.md` (documentation + changelog) and `AMO/AMO_DESCRIPTION.md` (Add-on store listing).
 - **Linter Gate**: Run `npx web-ext lint` after making changes. The code must produce **0 errors**.
 - **Version Synchronization**: The `version` field in `package.json` and `src/manifest.json` must always match and follow Semantic Versioning (`MAJOR.MINOR.PATCH`).
+- **Version Synchronization**: The `version` field in `package.json` and `src/manifest.json` must always match and follow Semantic Versioning (`MAJOR.MINOR.PATCH`). An optional 4th component (`MAJOR.MINOR.PATCH.BUILD`) is permitted for pre-release builds to satisfy Mozilla AMO signing requirements during testing.
 - **Release Artifacts**: Built packages are generated via `npm run build` (`npx web-ext build --source-dir src --overwrite-dest`) and placed in `web-ext-artifacts/`.

@@ -26,6 +26,13 @@ test('manifest.json - version synchronization with package.json', () => {
     pkg.version,
     `manifest.json version (${manifest.version}) must match package.json version (${pkg.version})`
   );
+
+  const semverOrPrereleaseRegex = /^\d+\.\d+\.\d+(\.\d+)?$/;
+  assert.match(
+    manifest.version,
+    semverOrPrereleaseRegex,
+    `Version "${manifest.version}" must follow MAJOR.MINOR.PATCH (or MAJOR.MINOR.PATCH.BUILD for pre-release AMO signing)`
+  );
 });
 
 test('manifest.json - does not declare unnecessary host_permissions or optional_permissions', () => {
