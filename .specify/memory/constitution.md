@@ -79,7 +79,10 @@ fetches) to keep the extension self-contained.
 The extension version in `package.json` and `src/manifest.json` MUST follow
 Semantic Versioning (MAJOR.MINOR.PATCH) for public releases and MUST stay in sync.
 An optional 4th component (MAJOR.MINOR.PATCH.BUILD) is permitted during pre-release
-AMO test signing. Every release MUST include a changelog entry in the README and a
+AMO test signing. Because TabSearch is a Firefox WebExtension marked `"private": true`
+and is never published to the npm registry, exact 1:1 string synchronization
+between `package.json` and `manifest.json` is intentional during pre-release testing.
+Every release MUST include a changelog entry in the README and a
 built `.xpi` artifact in `web-ext-artifacts/`. All new features, options, or behavior
 changes MUST review and synchronize both `README.md` (user documentation and changelog)
 and `AMO/AMO_DESCRIPTION.md` (Add-on store listing). Breaking changes to user-facing
