@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { buildFlatNavigationList, navigateHighlightIndex } = require('../src/search-results.js');
+const { buildFlatNavigationList, navigateHighlightIndex, shouldHandleKeyboardNavigation } = require('../src/search-results.js');
 
 test('buildFlatNavigationList - excludes tabs from collapsed windows (FR-010)', () => {
   const windowIds = [1, 2, 3];
@@ -79,3 +79,53 @@ test('buildFlatNavigationList - skips missing groups and preserves rendered orde
 
   assert.deepEqual(flat.map(tab => tab.id), [50, 20, 21]);
 });
+
+test('shouldHandleKeyboardNavigation - allows navigation when focus is on searchInput', () => {
+  const searchInput = { id: 'search', tagName: 'INPUT' };
+  assert.equal(shouldHandleKeyboardNavigation(searchInput, searchInput, false), true);
+});
+
+test('shouldHandleKeyboardNavigation - allows navigation on non-interactive elements or null target', () => {
+  const searchInput = { id: 'search' };
+  const divElement = {
+    tagName: 'DIV',
+    closest: (selector) => null
+  };
+  assert.equal(shouldHandleKeyboardNavigation(null, searchInput, false), true);
+  assert.equal(shouldHandleKeyboardNavigation(divElement, searchInput, false), true);
+});
+
+test('shouldHandleKeyboardNavigation - ignores navigation when event is already defaultPrevented', () => {
+  const searchInput = { id: 'search' };
+  assert.equal(shouldHandleKeyboardNavigation(searchInput, searchInput, true), false);
+  assert.equal(shouldHandleKeyboardNavigation(null, searchInput, true), false);
+});
+
+test('shouldHandleKeyboardNavigation - ignores navigation when focus is on interactive controls', () => {
+  const searchInput = { id: 'search' };
+
+  // Button
+  const button = {
+    closest: (sel) => sel.includes('button') ? {} : null
+  };
+  assert.equal(shouldHandleKeyboardNavigation(button, searchInput, false), false);
+
+  // Link inside tab list
+  const link = {
+    closest: (sel) => sel.includes('a') ? {} : null
+  };
+  assert.equal(shouldHandleKeyboardNavigation(link, searchInput, false), false);
+
+  // Range slider or other input
+  const rangeInput = {
+    closest: (sel) => sel.includes('input') ? {} : null
+  };
+  assert.equal(shouldHandleKeyboardNavigation(rangeInput, searchInput, false), false);
+
+  // Accessible accordion header with role="button"
+  const header = {
+    closest: (sel) => sel.includes('[role="button"]') ? {} : null
+  };
+  assert.equal(shouldHandleKeyboardNavigation(header, searchInput, false), false);
+});
+

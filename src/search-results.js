@@ -340,6 +340,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 6. Handle Keyboard Navigation
   window.addEventListener('keydown', (e) => {
     if (flatResults.length === 0) return;
+    if (!shouldHandleKeyboardNavigation(e.target, searchInput, e.defaultPrevented)) return;
 
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -562,6 +563,26 @@ function navigateHighlightIndex(currentIndex, totalCount, direction) {
     return 0;
   }
   return next;
+}
+
+/**
+ * Determines whether a global keydown event should be handled by the dashboard's
+ * result list keyboard navigation or ignored to preserve native interactive control behavior.
+ *
+ * @param {EventTarget|null} target - The event target receiving the keyboard event.
+ * @param {HTMLElement|null} searchInput - The primary search input element.
+ * @param {boolean} [defaultPrevented=false] - Whether defaultPrevented is already set on the event.
+ * @returns {boolean} True if the dashboard navigation should handle the event; false otherwise.
+ */
+function shouldHandleKeyboardNavigation(target, searchInput, defaultPrevented = false) {
+  if (defaultPrevented) return false;
+  if (!target) return true;
+  if (target === searchInput) return true;
+  if (typeof target.closest === 'function') {
+    const interactive = target.closest('button, a, input, select, textarea, [role="button"]');
+    if (interactive) return false;
+  }
+  return true;
 }
 
 /**
@@ -1138,6 +1159,7 @@ if (typeof module !== 'undefined' && module.exports) {
     groupAndSortWindows,
     buildFlatNavigationList,
     navigateHighlightIndex,
+    shouldHandleKeyboardNavigation,
     cleanStaleCollapsedWindows,
     createPinnedBadge,
     getEffectiveTheme,
