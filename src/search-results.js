@@ -18,6 +18,12 @@ let fuzzySearch = false;
 let fuzzyThreshold = 0.35;
 let currentStoredTheme = undefined;
 
+const CONTENT_SEARCH_BATCH_SIZE = 6;
+let currentDashboardTabId = null;
+let activeSearchId = 0;
+let lastContentSearchQuery = '';
+let lastContentMatchedTabIds = new Set();
+
 /**
  * Resolves the effective theme ('dark' or 'light') based on explicit user preference or system color scheme.
  *
@@ -198,6 +204,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
   document.getElementById('search-contents').addEventListener('change', (e) => {
     searchContents = e.target.checked;
+    if (!searchContents) {
+      lastContentSearchQuery = '';
+      lastContentMatchedTabIds.clear();
+    }
     browser.storage.local.set({ searchContents });
     if (currentQuery.trim() || (!searchUrls && !searchTitles && !searchContents)) {
       performSearch();
@@ -282,7 +292,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(async () => {
       await performSearch();
-    }, 100);
+    }, searchContents ? 200 : 100);
   });
 
   // Focus the search input initially
@@ -629,6 +639,9 @@ async function performSearch() {
     let currentTab = null;
     try {
       currentTab = await browser.tabs.getCurrent();
+      if (currentTab) {
+        currentDashboardTabId = currentTab.id;
+      }
     } catch (e) {
       console.warn('[TabSearch] Failed to get current tab for dashboard exclusion:', e);
     }
@@ -643,23 +656,59 @@ async function performSearch() {
       fuzzyThreshold
     });
 
-    // Optional page content search
+    // Optional page content search with bounded concurrency
     if (term && searchContents && term.length >= 3 && browser.find && browser.find.find) {
-      for (const tab of allTabs) {
-        // Skip if already matched
-        if (matchedTabs.some(t => t.id === tab.id)) continue;
-
-        if (tab.url && tab.url.startsWith('http')) {
-          try {
-            const findResult = await browser.find.find(term, { tabId: tab.id, caseSensitive: false });
-            if (findResult && findResult.count && findResult.count > 0) {
-              matchedTabs.push(tab);
-            }
-          } catch (e) {
-            // Ignore find failures on unloaded/protected pages
+      if (term === lastContentSearchQuery) {
+        const existingMatchedIds = new Set(matchedTabs.map(t => t.id));
+        for (const tab of allTabs) {
+          if (!existingMatchedIds.has(tab.id) && lastContentMatchedTabIds.has(tab.id)) {
+            matchedTabs.push(tab);
           }
         }
+      } else {
+        const thisSearchId = ++activeSearchId;
+        const candidateTabs = allTabs.filter(tab =>
+          !matchedTabs.some(t => t.id === tab.id) && tab.url && tab.url.startsWith('http')
+        );
+
+        const newContentMatchedIds = new Set();
+        for (let i = 0; i < candidateTabs.length; i += CONTENT_SEARCH_BATCH_SIZE) {
+          if (thisSearchId !== activeSearchId) {
+            return;
+          }
+          const chunk = candidateTabs.slice(i, i + CONTENT_SEARCH_BATCH_SIZE);
+          const results = await Promise.allSettled(
+            chunk.map(async (tab) => {
+              try {
+                const findResult = await browser.find.find(term, { tabId: tab.id, caseSensitive: false });
+                if (findResult && findResult.count && findResult.count > 0) {
+                  return tab;
+                }
+              } catch {
+                // Ignore find failures on unloaded/protected pages
+              }
+              return null;
+            })
+          );
+
+          if (thisSearchId !== activeSearchId) {
+            return;
+          }
+
+          for (const res of results) {
+            if (res.status === 'fulfilled' && res.value) {
+              matchedTabs.push(res.value);
+              newContentMatchedIds.add(res.value.id);
+            }
+          }
+        }
+
+        lastContentSearchQuery = term;
+        lastContentMatchedTabIds = newContentMatchedIds;
       }
+    } else {
+      lastContentSearchQuery = '';
+      lastContentMatchedTabIds.clear();
     }
 
     // Determine active window ID to sort priority
@@ -1055,6 +1104,7 @@ if (typeof browser !== 'undefined' && browser.tabs) {
   if (browser.tabs.onRemoved) {
     browser.tabs.onRemoved.addListener((tabId) => {
       console.log('[TabSearch] Tab removed:', tabId);
+      lastContentMatchedTabIds.delete(tabId);
       scheduleSearch(50);
     });
   }
@@ -1070,7 +1120,16 @@ if (typeof browser !== 'undefined' && browser.tabs) {
   // Reflect URL, title, favicon, loading status, or other tab updates
   if (browser.tabs.onUpdated) {
     browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
-      scheduleSearch(100);
+      if (currentDashboardTabId && tabId === currentDashboardTabId) {
+        return;
+      }
+      const isRelevant = changeInfo.url || changeInfo.title ||
+        changeInfo.status === 'complete' ||
+        changeInfo.pinned !== undefined ||
+        changeInfo.hidden !== undefined;
+      if (isRelevant) {
+        scheduleSearch(100);
+      }
     });
   }
 
@@ -1154,6 +1213,7 @@ if (typeof browser !== 'undefined' && browser.tabs) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
+    CONTENT_SEARCH_BATCH_SIZE,
     getTabFaviconUrl,
     filterMatchingTabs,
     groupAndSortWindows,

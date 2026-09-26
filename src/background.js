@@ -45,6 +45,7 @@ const TST_REGISTER_MESSAGE = {
 const POPUP_CLOSE_GRACE_MS = 250; // grace period after popup closed
 const RECENT_ACTIVATION_WINDOW_MS = 500; // window to consider a tab activation recent
 const STORAGE_KEY_TST_SEARCH_STATE = 'tstActiveSearchState';
+const CONTENT_SEARCH_BATCH_SIZE = 6;
 
 /**
  * Registers TabSearch as an external listener/integrator with Tree Style Tab (TST).
@@ -704,18 +705,31 @@ async function executeSearch(msg) {
         }
       }
 
-      // Parallel content search (not fuzzy)
-      if (searchContents && term.length >= 3) {
-        for (const tab of tabs) {
-          // Skip if already matched via title/url
-          if (matchedTabIds.includes(tab.id)) continue;
-          if (tab.url && tab.url.startsWith('http')) {
-            try {
-              const findResult = await browser.find.find(term, { tabId: tab.id, caseSensitive: false });
-              if (findResult && findResult.count && findResult.count > 0) {
-                matchedTabIds.push(tab.id);
+      // Content search with bounded concurrency (not fuzzy)
+      if (searchContents && term.length >= 3 && browser.find && browser.find.find) {
+        const candidateTabs = tabs.filter(tab =>
+          !matchedTabIds.includes(tab.id) && tab.url && tab.url.startsWith('http')
+        );
+
+        for (let i = 0; i < candidateTabs.length; i += CONTENT_SEARCH_BATCH_SIZE) {
+          const chunk = candidateTabs.slice(i, i + CONTENT_SEARCH_BATCH_SIZE);
+          const results = await Promise.allSettled(
+            chunk.map(async (tab) => {
+              try {
+                const findResult = await browser.find.find(term, { tabId: tab.id, caseSensitive: false });
+                if (findResult && findResult.count && findResult.count > 0) {
+                  return tab.id;
+                }
+              } catch (e) {
+                console.warn('[TabSearch] Operation failed:', e);
               }
-            } catch (e) { console.warn('[TabSearch] Operation failed:', e); }
+              return null;
+            })
+          );
+          for (const res of results) {
+            if (res.status === 'fulfilled' && res.value !== null) {
+              matchedTabIds.push(res.value);
+            }
           }
         }
       }

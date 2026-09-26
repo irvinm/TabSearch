@@ -116,6 +116,34 @@ test('performSearch does not run page-content lookups for queries shorter than t
   assert.deepEqual(dashboardState(context).matchedTabs, []);
 });
 
+test('performSearch caches content search results and avoids rescanning when query is unchanged', async () => {
+  const tabs = [
+    { id: 1, windowId: 1, title: 'Alpha', url: 'https://example.com/1' },
+    { id: 2, windowId: 1, title: 'Beta', url: 'https://example.com/2' }
+  ];
+  const calls = { find: [] };
+  const { context } = loadDashboard({
+    tabs,
+    currentTab: null,
+    find: async (term, { tabId, caseSensitive }) => {
+      calls.find.push([term, { tabId, caseSensitive }]);
+      return { count: tabId === 2 ? 1 : 0 };
+    }
+  });
+  context.captureRender = () => {};
+  vm.runInContext("currentQuery = 'testquery'; searchContents = true; searchTitles = false; searchUrls = false; renderResults = captureRender", context);
+
+  // First run: calls find for candidate tabs
+  await dashboardFunction(context, 'performSearch')();
+  assert.equal(calls.find.length, 2);
+  assert.deepEqual(dashboardState(context).matchedTabs.map(t => t.id), [2]);
+
+  // Second run with identical query (e.g. triggered by tab event): reuses cache without calling find again
+  await dashboardFunction(context, 'performSearch')();
+  assert.equal(calls.find.length, 2, 'Content search must not re-scan tabs when query is unchanged');
+  assert.deepEqual(dashboardState(context).matchedTabs.map(t => t.id), [2]);
+});
+
 test('loadStoredOptions applies persisted booleans, threshold, keep-open, and collapsed windows', async () => {
   const { context } = loadDashboard({
     storedOptions: {
