@@ -203,6 +203,7 @@
 - **Eliminated Unused Host Permissions**: Removed `host_permissions: ["<all_urls>"]` from `manifest.json`.
 - **Eliminated Attention Dot & Optional Prompts**: Stops Firefox from displaying the green attention dot under the extension toolbar icon on startup and eliminates optional permission prompts in `about:addons`.
 - **Updated Privacy Guarantees**: Updated `privacy.html` documentation to explicitly guarantee zero host, website, or local file access.
+- **Updated Privacy Guarantees**: Updated `privacy.html` documentation to explicitly clarify zero broad host permissions (no access to cookies, web requests, credentials, or file systems), noting that user-enabled page content search operates strictly locally via Firefox's in-memory `find` API.
 - **Manifest Integrity Tests**: Added automated unit test suite (`tests/manifest.test.js`) verifying strict minimal permissions and version synchronization between `package.json` and `manifest.json`.
 
 #### 4. Tree Style Tab (TST) Resilience & Manifest V3 Hardening
