@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cmd /c lint.bat",
+            "command": ".\\lint.bat",
             "timeout": 25
           }
         ]
