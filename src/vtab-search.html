@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="color-scheme" content="light dark">
+  <title>TabSearch panel</title>
+  <link rel="stylesheet" href="vtab-search.css">
+</head>
+<body>
+  <main id="panel" aria-label="Search tabs">
+    <button id="expand-button" class="collapsed-only" type="button" title="Search tabs" aria-label="Open tab search">
+      <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+        <path d="M10.5 3a5.5 5.5 0 1 0 3.36 9.86l2.14 2.14a.75.75 0 1 0 1.06-1.06l-2.14-2.14A5.5 5.5 0 0 0 10.5 3Zm0 1.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" fill="currentColor"/>
+      </svg>
+      <span id="active-dot" hidden></span>
+    </button>
+
+    <div id="expanded-panel" class="expanded-only">
+      <div class="search-row">
+        <svg class="search-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+          <path d="M10.5 3a5.5 5.5 0 1 0 3.36 9.86l2.14 2.14a.75.75 0 1 0 1.06-1.06l-2.14-2.14A5.5 5.5 0 0 0 10.5 3Zm0 1.5a4 4 0 1 1 0 8 4 4 0 0 1 0-8Z" fill="currentColor"/>
+        </svg>
+        <input id="tab-search-input" type="text" placeholder="Search tabs..." autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Search tabs">
+        <button id="clear-button" type="button" title="Clear search" aria-label="Clear search" hidden>
+          <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+            <path d="M4.28 3.22a.75.75 0 0 0-1.06 1.06L6.94 8l-3.72 3.72a.75.75 0 1 0 1.06 1.06L8 9.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L9.06 8l3.72-3.72a.75.75 0 0 0-1.06-1.06L8 6.94 4.28 3.22Z" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite">
+        <span id="result-count">Open tabs: 0</span><span id="blocked-note"></span>
+      </div>
+    </div>
+  </main>
+  <script src="vtab-search.js"></script>
+</body>
+</html>

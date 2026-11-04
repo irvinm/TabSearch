@@ -20,6 +20,7 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 - Optionally multi-select all matching tabs when the search session ends
 - Progress counter on the toolbar icon badge while tabs are processed
 - **Dark Theme with Sun/Moon Toggle**: One-click quick theme toggle in both the popup and Virtual Dashboard with real-time bidirectional synchronization, plus automatic system dark mode detection
+- **Optional native vertical-tabs search field**: A separate privileged integration package (documented on GitHub) places a compact TabSearch field directly above Firefox's built-in vertical tab list, with a live result counter, collapsed-icon mode, and a configurable focus shortcut. The field uses the same local search engine and native tab-hiding APIs; the normal extension remains fully functional and AMO-compatible without it.
 - Theme-responsive documentation and help guides
 - Guided post-install setup: clear first-run onboarding walks you through granting Firefox's tab-hiding permission
 
@@ -42,6 +43,8 @@ Whether you have dozens or hundreds of tabs across multiple windows, Tab Search 
 - Supports both standard substring matching and typo-tolerant fuzzy matching
 - Pinned and active tabs are never hidden: Firefox's `tabs.hide()` API strictly prohibits hiding pinned tabs and the active tab in each window. In classic tab-hiding mode, they remain visible on your tab strip even when non-matching. In the Virtual Search Results Dashboard, matching pinned tabs are included and highlighted with an accessible "Pinned" badge.
 - **Native Tab Groups**: When using classic tab hiding mode, Firefox currently leaves the native tab group header visible on the tab strip even if all member tabs are hidden (Firefox platform limitation; use the Virtual Dashboard mode if you prefer not to see empty group headers)
+- **Native vertical-tabs field is optional and separate**: WebExtensions cannot inject controls into Firefox's browser chrome, so the in-sidebar field requires the separate Autoconfig integration package from the GitHub repository. It is not part of the AMO `.xpi` and must be installed with administrator rights. The extension itself works normally without it.
+- Native-panel filtering searches titles, URLs and domains (not page content) for responsive typing over hundreds of tabs. Active, pinned, and camera/microphone/screen-sharing tabs cannot be hidden by Firefox and are reported by the counter. A tab you were on while it did not match the query stays visible for the session so you can switch back to it; the counter marks it as kept for return. Native filter sessions are not persisted across browser restarts.
 
 **Support and source**
 - Source and issues: [GitHub - irvinm/TabSearch](https://github.com/irvinm/TabSearch)

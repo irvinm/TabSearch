@@ -1,11 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Tab Search",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "Search tabs and hide non-matching ones.",
   "permissions": ["tabs", "tabHide", "storage", "find"],
   "background": {
-    "scripts": ["fuse.basic.min.js", "background.js"]
+    "scripts": ["fuse.basic.min.js", "native-filter.js", "background.js"]
   },
   "action": {
     "default_popup": "popup.html",
@@ -31,6 +31,12 @@
         "default": "Ctrl+Shift+F"
       },
       "description": "Open Tab Search Options"
+    },
+    "focus-native-tab-search": {
+      "suggested_key": {
+        "default": "Ctrl+Alt+F"
+      },
+      "description": "Focus tab search in the vertical tabs sidebar"
     }
   }
 }

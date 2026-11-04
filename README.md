@@ -3,6 +3,14 @@
 
 # TabSearch
 
+## Native vertical tabs search (optional)
+
+TabSearch can also live directly in **Firefox's built-in vertical tabs sidebar**, above the first tab. The field filters the current window as you type and restores only the tabs it hid, while keeping active, pinned, and starting tabs available.
+
+**One-click install for stable Firefox:** download the [`integration/firefox`](integration/firefox) folder (or the release integration zip), then double-click [`install.cmd`](integration/firefox/install.cmd) and approve the UAC prompt. Install TabSearch 0.9.0+ and enable native vertical tabs first. The regular `.xpi` cannot inject UI into Firefox chrome by itself; the privileged integration is a separate, optional package.
+
+[Full installation, update, and removal guide](integration/firefox/README.md)
+
 ## Inspiration
 - As a power user of Tree Style Tab (TST) and a user usually with large sessions with many tabs, I wanted to create a unique experience primarily focused on vertical tab solutions utilitzing Firefox's native ability to hide tabs.  When doing searches, tabs that do not meet your search criteria will be hidden until you find the tab you want or cancel the search.  Tabs are only hidden temporarily and never permanently.  This addon works independantly of vertical tab solutions and will work for everyone.
   
@@ -37,6 +45,18 @@
 - Option to multi-select matching tabs after search is complete.
     - "Select all matching tabs on close" only applies when the search session ends.
 - Shows the number of remaining tabs to be hidden/shown on the addon icon.
+
+### Native Vertical Tabs (Optional Integration)
+
+- **Search field inside Firefox's built-in vertical tabs sidebar**: A compact field is mounted directly above the first tab in the native vertical tab strip — not in a popup, a separate window, or a custom extension sidebar.
+- **Real-time filtering**: Non-matching tabs in the current window are hidden with the native `tabs.hide()` API as you type. Matching tabs (title, URL and domain; case-insensitive, multi-word AND) stay visible.
+- **Live result counter**: Shows `Found N of M tabs` and explains why some non-matching tabs remain visible (active, pinned, protected by Firefox because they use camera/microphone/screen sharing, or intentionally kept for a quick return).
+- **Return to your starting tab**: If you start a search while on a non-matching tab (for example YouTube), that tab stays visible after you switch to a matching result. You can switch back without clearing the search; the counter marks it as `kept for return`.
+- **Safe restoration**: Each window has its own filter session. Only tabs hidden by that session are shown again; tabs hidden before the search by another extension or by the user are never revealed. Closing and opening tabs, changing URLs/titles, moving tabs and switching the active tab re-evaluate the filter automatically.
+- **Collapsed sidebar support**: In the narrow icon-only launcher, the field becomes a compact search icon. Clicking it expands the sidebar, focuses the field, and keeps the tab strip usable.
+- **Keyboard**: `Esc` clears the query, `Ctrl+A` selects it, and `Ctrl+Alt+F` focuses the native field. The shortcut is configurable in `about:addons` → TabSearch → Manage Extension Shortcuts.
+- **Optional privileged package**: Because WebExtensions cannot inject HTML into browser chrome, the field requires the separate Firefox Autoconfig integration in [`integration/firefox/`](integration/firefox/README.md). The normal `.xpi` remains fully usable and AMO-compatible without it.
+- Opening the classic TabSearch popup ends the native filter session first (restoring only its own tabs) so two visibility controllers never fight over the same tab strip.
 
 ### Virtual Search Results Dashboard
 
@@ -115,6 +135,11 @@
     - [Mozilla Bugzilla Report](https://bugzilla.mozilla.org/show_bug.cgi?id=1877410)
 - Tab content search requires at least 3 characters in the search term.
 - When "Select all matching tabs on close" is enabled with multiple open windows, there is a Firefox limitation that dragging tabs has to be done PER window.
+- **Native vertical-tabs field:** requires Firefox with the built-in vertical tabs sidebar plus the optional Autoconfig package in `integration/firefox/`. The normal AMO `.xpi` does not and cannot inject the field by itself.
+    - Native-panel search uses title, URL and domain only; page-content search is intentionally disabled there because scanning hundreds of pages on every keystroke is too expensive.
+    - Active, pinned and camera/microphone/screen-sharing tabs cannot be hidden by Firefox; the counter reports them.
+    - The native filter is session-only. After a Firefox restart all tabs are visible again; no tab-hiding state is persisted to disk.
+    - The integration detects missing or changed Firefox chrome elements and disables itself with a Browser Console warning instead of breaking the tab strip. A future Firefox update may require an integration update.
 
 
 ## Known Issues
@@ -134,6 +159,30 @@
 
 
 ## Changelog
+
+<details open>
+<summary><strong>v0.9.0 (2026-11-04) - Native Vertical Tabs Search Field (Optional Firefox Integration)</strong></summary>
+
+### Major Highlights
+
+1. **Native vertical-tabs search field**:
+   - Added a compact search field directly above the tab list in Firefox's built-in vertical tabs sidebar, including a collapsed icon-only state.
+   - Filtering uses the existing TabSearch engine and native `tabs.hide()` / `tabs.show()`; tabs are never closed or discarded.
+   - Live `Found N of M tabs` counter, blocked-tab explanations, `Esc`/`Ctrl+A` support, and a configurable `Ctrl+Alt+F` focus shortcut.
+2. **Safe per-window filter sessions**:
+   - Each window tracks only the tabs it hid itself. Pre-existing hidden tabs are never revealed, including tabs hidden by other extensions.
+   - Tabs that were active while non-matching remain visible for the rest of the session, so you can return to the page you started from. The counter reports them as kept for return.
+   - Reacts to tab creation/removal, navigation, title changes, activation and tab moves through Firefox events; no polling.
+   - Rehydrates active sessions from memory-only `storage.session` if the MV3 background page is restarted.
+3. **Privileged browser-chrome integration package**:
+   - Added `integration/firefox/` with a self-contained Autoconfig file, install/uninstall PowerShell scripts, backup/restore, and documentation.
+   - The extension page is hosted as an extension-process sidebar view, so no remote code, `eval`, or unsafe DOM injection is used.
+   - The regular `.xpi` remains fully functional and AMO-installable without the integration; the field simply falls back to the existing popup shortcut.
+4. **Compatibility and tests**:
+   - Verified on Firefox Nightly 161 with native vertical tabs: expanded/collapsed sidebar, left/right position, light/dark themes, two windows, 11-tab filtering, active/pinned exceptions, pre-hidden tab safety, background restart rehydration, and collapsed-icon activation.
+   - Added unit tests for token/fuzzy matching, visibility planning, safe restoration, unsupported tabs, external-show races, multi-window isolation, rehydration and tab moves.
+
+</details>
 
 <details open>
 <summary><strong>v0.8.2 (2026-09-27) - Virtual Search Results Dashboard, Dark Theme Mode, Permission Streamlining & Background Script Reliability</strong></summary>

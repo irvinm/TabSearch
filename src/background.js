@@ -46,6 +46,54 @@ const POPUP_CLOSE_GRACE_MS = 250; // grace period after popup closed
 const RECENT_ACTIVATION_WINDOW_MS = 500; // window to consider a tab activation recent
 const STORAGE_KEY_TST_SEARCH_STATE = 'tstActiveSearchState';
 const CONTENT_SEARCH_BATCH_SIZE = 6;
+const NATIVE_PANEL_PORT_NAME = 'native-tab-filter-panel';
+
+/**
+ * Per-window ports for the native vertical-tabs search panel.
+ *
+ * @type {Map<number, Set<browser.runtime.Port>>}
+ */
+const nativePanelPorts = new Map();
+
+/**
+ * Background controller for the native vertical-tabs filter, when the
+ * native-filter.js script is present and running in a browser context.
+ *
+ * @type {Object|null}
+ */
+let nativeFilterController = null;
+
+if (
+  typeof browser !== 'undefined' &&
+  browser.tabs &&
+  typeof TabSearchNativeFilter !== 'undefined'
+) {
+  nativeFilterController = TabSearchNativeFilter.createController({
+    browserApi: browser,
+    FuseClass: typeof Fuse !== 'undefined' ? Fuse : null,
+    onState: broadcastNativePanelState,
+    logger: console
+  });
+}
+
+/**
+ * Broadcasts native-filter state to every panel port for one window.
+ *
+ * @param {number} windowId - Firefox window ID.
+ * @param {Object} state - Panel state snapshot.
+ * @returns {void}
+ */
+function broadcastNativePanelState(windowId, state) {
+  const ports = nativePanelPorts.get(windowId);
+  if (!ports || ports.size === 0) return;
+  for (const port of ports) {
+    try {
+      port.postMessage({ type: 'state', state });
+    } catch (err) {
+      console.warn('[TabSearch] Failed to post native panel state:', err);
+    }
+  }
+}
 
 /**
  * Registers TabSearch as an external listener/integrator with Tree Style Tab (TST).
@@ -221,6 +269,13 @@ if (typeof browser !== 'undefined' && browser.runtime && browser.runtime.onStart
   browser.runtime.onStartup.addListener(async () => {
     if (browser.storage && browser.storage.local) {
       try {
+        // Native panel sessions live in memory-only storage.session, which is
+        // cleared by Firefox on browser shutdown. Drop any stale marker, but
+        // never call tabs.show() from an old tab-ID list after a restart.
+        if (nativeFilterController) {
+          await nativeFilterController.clearStaleState();
+        }
+
         // Check for dangling hidden tabs or un-restored TST state from a browser crash/shutdown
         const items = await browser.storage.local.get(['disableEmptyTab', 'virtualDashboard', STORAGE_KEY_TST_SEARCH_STATE]);
         if (items[STORAGE_KEY_TST_SEARCH_STATE]) {
@@ -1022,6 +1077,11 @@ async function handlePopupClosed() {
 
 if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onConnect) {
   browser.runtime.onConnect.addListener((port) => {
+    if (port.name === NATIVE_PANEL_PORT_NAME) {
+      handleNativePanelPort(port);
+      return;
+    }
+
     if (port.name === 'popup-lifecycle') {
       if (port.onMessage && typeof port.onMessage.addListener === 'function') {
         port.onMessage.addListener((msg) => {
@@ -1045,6 +1105,218 @@ if (typeof browser !== "undefined" && browser.runtime && browser.runtime.onConne
           }
         });
       }
+
+      // The popup owns tab visibility while it is open. End native-panel
+      // sessions first so its close handler cannot accidentally reveal tabs
+      // that the native filter hid (and vice versa).
+      if (nativeFilterController) {
+        nativeFilterController.clearAll({ reason: 'popup-opened' }).catch((err) => {
+          console.warn('[TabSearch] Failed to clear native filter on popup open:', err);
+        });
+      }
+    }
+  });
+}
+
+/**
+ * Handles a long-lived port from the native vertical-tabs search panel.
+ * Each panel may only control the window declared in its "hello" message.
+ *
+ * @param {browser.runtime.Port} port - Connected panel port.
+ * @returns {void}
+ */
+function handleNativePanelPort(port) {
+  if (!port || port.name !== NATIVE_PANEL_PORT_NAME) return;
+
+  let boundWindowId = null;
+
+  /**
+   * Safely posts a message back to the panel.
+   *
+   * @param {Object} message - Message payload.
+   * @returns {void}
+   */
+  const reply = (message) => {
+    try {
+      port.postMessage(message);
+    } catch (err) {
+      console.warn('[TabSearch] Native panel port is closed:', err);
+    }
+  };
+
+  port.onMessage.addListener(async (msg) => {
+    if (!msg || typeof msg !== 'object') return;
+
+    if (msg.type === 'hello') {
+      const requestedWindowId = Number(msg.windowId);
+      if (!Number.isInteger(requestedWindowId) || requestedWindowId <= 0) {
+        reply({ type: 'error', error: 'invalid-window' });
+        return;
+      }
+
+      boundWindowId = requestedWindowId;
+      console.info('[TabSearch] Native panel connected for window', requestedWindowId);
+      const targetWindow = await browser.windows.get(requestedWindowId).catch(() => null);
+      if (!targetWindow) {
+        reply({ type: 'error', error: 'window-not-found' });
+        return;
+      }
+
+      let ports = nativePanelPorts.get(requestedWindowId);
+      if (!ports) {
+        ports = new Set();
+        nativePanelPorts.set(requestedWindowId, ports);
+      }
+      ports.add(port);
+
+      if (nativeFilterController) {
+        try {
+          const state = await nativeFilterController.getPanelState(requestedWindowId);
+          reply({ type: 'state', state });
+        } catch (err) {
+          console.warn('[TabSearch] Failed to read native panel state:', err);
+        }
+      }
+      return;
+    }
+
+    if (boundWindowId === null) {
+      reply({ type: 'error', error: 'hello-required' });
+      return;
+    }
+
+    if (!nativeFilterController) {
+      reply({ type: 'error', error: 'controller-unavailable' });
+      return;
+    }
+
+    try {
+      if (msg.type === 'get-state') {
+        reply({ type: 'state', state: await nativeFilterController.getPanelState(boundWindowId) });
+        return;
+      }
+
+      if (msg.type === 'set-query') {
+        const state = await nativeFilterController.setQuery(boundWindowId, msg.query);
+        reply({ type: 'state', state });
+        return;
+      }
+
+      if (msg.type === 'clear') {
+        const state = await nativeFilterController.clearWindow(boundWindowId, { reason: 'panel-clear' });
+        reply({ type: 'state', state });
+        return;
+      }
+
+      if (msg.type === 'ping') {
+        reply({ type: 'pong' });
+      }
+    } catch (err) {
+      console.warn('[TabSearch] Native panel request failed:', err);
+      reply({ type: 'error', error: 'request-failed' });
+    }
+  });
+
+  port.onDisconnect.addListener(() => {
+    if (boundWindowId === null) return;
+    const ports = nativePanelPorts.get(boundWindowId);
+    if (!ports) return;
+    ports.delete(port);
+    if (ports.size === 0) {
+      nativePanelPorts.delete(boundWindowId);
+    }
+  });
+}
+
+if (typeof browser !== "undefined" && browser.tabs && nativeFilterController) {
+  browser.tabs.onCreated.addListener((tab) => nativeFilterController.handleTabCreated(tab));
+  browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) =>
+    nativeFilterController.handleTabUpdated(tabId, changeInfo, tab)
+  );
+  browser.tabs.onActivated.addListener((activeInfo) =>
+    nativeFilterController.handleTabActivated(activeInfo)
+  );
+  if (browser.tabs.onMoved) {
+    browser.tabs.onMoved.addListener((tabId, moveInfo) =>
+      nativeFilterController.handleTabMoved(tabId, moveInfo)
+    );
+  }
+  if (browser.tabs.onAttached) {
+    browser.tabs.onAttached.addListener((tabId, attachInfo) =>
+      nativeFilterController.handleTabAttached(tabId, attachInfo)
+    );
+  }
+  if (browser.tabs.onDetached) {
+    browser.tabs.onDetached.addListener((tabId, detachInfo) =>
+      nativeFilterController.handleTabDetached(tabId, detachInfo)
+    );
+  }
+  browser.tabs.onRemoved.addListener((tabId, removeInfo) =>
+    nativeFilterController.handleTabRemoved(tabId, removeInfo)
+  );
+
+  if (browser.windows && browser.windows.onRemoved) {
+    browser.windows.onRemoved.addListener((windowId) => {
+      nativePanelPorts.delete(windowId);
+      nativeFilterController.handleWindowRemoved(windowId).catch((err) => {
+        console.warn('[TabSearch] Failed to clean up native filter window:', err);
+      });
+    });
+  }
+
+  if (browser.storage && browser.storage.onChanged) {
+    browser.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local') return;
+      if (changes.fuzzySearch || changes.fuzzyThreshold) {
+        nativeFilterController.refreshAll().catch((err) => {
+          console.warn('[TabSearch] Failed to refresh native filter settings:', err);
+        });
+      }
+    });
+  }
+
+  // Recover sessions if the MV3 event page was suspended and restarted. This
+  // uses memory-only storage.session, so no state survives a browser restart.
+  nativeFilterController.rehydrate().catch((err) => {
+    console.warn('[TabSearch] Failed to rehydrate native filter sessions:', err);
+  });
+}
+
+if (typeof browser !== "undefined" && browser.commands && browser.commands.onCommand) {
+  browser.commands.onCommand.addListener(async (command) => {
+    if (command !== 'focus-native-tab-search') return;
+    try {
+      const win = await browser.windows.getLastFocused({ windowTypes: ['normal'] }).catch(() => null);
+      if (!win || !win.id) return;
+
+      // Prefer the long-lived panel port: sidebar views do not reliably return
+      // values from runtime.sendMessage in every Firefox build, which would
+      // otherwise trigger the popup fallback after the panel already focused.
+      const panelPorts = nativePanelPorts.get(win.id);
+      if (panelPorts && panelPorts.size > 0) {
+        for (const panelPort of panelPorts) {
+          try {
+            panelPort.postMessage({ type: 'focus' });
+          } catch (err) {
+            console.warn('[TabSearch] Could not ask native panel to focus:', err);
+          }
+        }
+        return;
+      }
+
+      const response = await browser.runtime.sendMessage({
+        action: 'native-panel-focus',
+        windowId: win.id
+      }).catch(() => null);
+      if (!response || !response.handled) {
+        // The privileged integration is not installed (or the panel is not
+        // loaded). Keep the shortcut useful by opening the existing popup.
+        if (browser.action && browser.action.openPopup) {
+          await browser.action.openPopup().catch(() => {});
+        }
+      }
+    } catch (err) {
+      console.warn('[TabSearch] Failed to handle native panel shortcut:', err);
     }
   });
 }
@@ -1101,6 +1373,13 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
 
   if (msg.action === 'reset-search-state') {
     pendingSearchMsg = null;
+    if (nativeFilterController) {
+      try {
+        await nativeFilterController.clearAll({ reason: 'reset-search-state' });
+      } catch (err) {
+        console.warn('[TabSearch] Failed to clear native filter sessions:', err);
+      }
+    }
     const startTime = Date.now();
     while (searchInProgress && (Date.now() - startTime < 5000)) {
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -1119,6 +1398,15 @@ browser.runtime.onMessage.addListener(async (msg, sender) => {
   }
 
   if (msg.action === 'search-tabs') {
+    // Popup search and the native panel must not fight over tab visibility.
+    // Opening/searching from the popup ends native sessions safely first.
+    if (nativeFilterController) {
+      try {
+        await nativeFilterController.clearAll({ reason: 'popup-search' });
+      } catch (err) {
+        console.warn('[TabSearch] Failed to clear native filter before popup search:', err);
+      }
+    }
     if (searchInProgress) {
       pendingSearchMsg = msg;
       return;

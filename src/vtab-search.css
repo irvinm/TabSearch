@@ -1,0 +1,197 @@
+:root {
+  color-scheme: light dark;
+  --ts-text: light-dark(#15141a, #fbfbfe);
+  --ts-text-dim: light-dark(rgba(21, 20, 26, 0.65), rgba(251, 251, 254, 0.65));
+  /* Match Firefox's native tab surface (pinned tab background) instead of a
+     darker custom input fill. */
+  --ts-field-bg: light-dark(rgba(0, 0, 0, 0.035), rgba(255, 255, 255, 0.07));
+  --ts-field-border: light-dark(rgba(21, 20, 26, 0.16), rgba(251, 251, 254, 0.16));
+  --ts-field-hover: light-dark(rgba(21, 20, 26, 0.08), rgba(251, 251, 254, 0.1));
+  --ts-accent: light-dark(#0060df, #00ddff);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  color: var(--ts-text);
+  font: menu;
+  font-size: 13px;
+}
+
+#panel {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  /* 5 + 32 (field) + 8 (gap) + 15 (status) + 4 = 64 px host. */
+  padding: 5px 8px 4px;
+  overflow: hidden;
+}
+
+/* Collapsed launcher: a single search icon. */
+.collapsed-only {
+  display: none;
+}
+
+#expand-button {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin: 0 auto;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--ts-text);
+  cursor: pointer;
+}
+
+#expand-button:hover {
+  background: var(--ts-field-hover);
+}
+
+#expand-button:focus-visible {
+  outline: 2px solid var(--ts-accent);
+  outline-offset: -2px;
+}
+
+#active-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ts-accent);
+}
+
+#expanded-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.search-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.search-icon {
+  position: absolute;
+  inset-inline-start: 9px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ts-text-dim);
+  pointer-events: none;
+}
+
+#tab-search-input {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  margin: 0;
+  padding: 0 30px 0 29px;
+  border: 1px solid var(--ts-field-border);
+  /* Firefox's --tab-border-radius is 24px in this build. On a 32px field
+     this produces the same fully rounded pill as a native vertical tab. */
+  border-radius: 24px;
+  background: var(--ts-field-bg);
+  color: var(--ts-text);
+  font: inherit;
+  line-height: 30px;
+  outline: none;
+}
+
+#tab-search-input::placeholder {
+  color: var(--ts-text-dim);
+  opacity: 1;
+}
+
+#tab-search-input:hover {
+  border-color: light-dark(rgba(21, 20, 26, 0.32), rgba(251, 251, 254, 0.34));
+}
+
+#tab-search-input:focus {
+  border-color: var(--ts-accent);
+  outline: 1px solid var(--ts-accent);
+  outline-offset: -2px;
+}
+
+#clear-button {
+  position: absolute;
+  inset-inline-end: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ts-text-dim);
+  cursor: pointer;
+}
+
+#clear-button:hover {
+  background: var(--ts-field-hover);
+  color: var(--ts-text);
+}
+
+#clear-button:focus-visible {
+  outline: 2px solid var(--ts-accent);
+  outline-offset: -2px;
+}
+
+.status {
+  display: block;
+  min-height: 15px;
+  padding: 0 2px;
+  overflow: hidden;
+  color: var(--ts-text-dim);
+  font-size: 11px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#blocked-note {
+  white-space: nowrap;
+}
+
+/* Narrow launcher (collapsed vertical tabs). Keep only the icon. */
+@media (max-width: 110px) {
+  #panel {
+    justify-content: center;
+    padding: 3px 0;
+  }
+
+  /* ID specificity is required here: #expanded-panel sets display:flex above. */
+  #expanded-panel {
+    display: none;
+  }
+
+  .collapsed-only {
+    display: flex;
+  }
+}
