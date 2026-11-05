@@ -72,6 +72,7 @@
       (state.blockedPinned || 0) +
       (state.blockedUnsupported || 0);
     const protectedCount = state.protectedCount || 0;
+    const newTabCount = state.newTabCount || 0;
     const notes = [];
     const tips = [];
 
@@ -80,6 +81,10 @@
     if (protectedCount > 0) {
       notes.push(`${protectedCount} kept for return`);
       tips.push(`Kept for return: ${protectedCount}`);
+    }
+    if (newTabCount > 0) {
+      notes.push(`${newTabCount} new`);
+      tips.push(`New tabs kept visible: ${newTabCount}`);
     }
     if (blocked > 0) {
       notes.push(`${blocked} can't be hidden`);

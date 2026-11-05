@@ -76,6 +76,7 @@ test('native panel - script is CSP-safe and implements required keyboard behavio
   assert.match(source, /TabSearch:/);
   assert.match(source, /requestFocus/);
   assert.match(source, /protectedCount/);
+  assert.match(source, /newTabCount/);
   assert.match(source, /kept for return/);
 });
 

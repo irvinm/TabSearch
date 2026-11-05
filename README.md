@@ -52,6 +52,7 @@ TabSearch can also live directly in **Firefox's built-in vertical tabs sidebar**
 - **Real-time filtering**: Non-matching tabs in the current window are hidden with the native `tabs.hide()` API as you type. Matching tabs (title, URL and domain; case-insensitive, multi-word AND) stay visible.
 - **Live result counter**: Shows `Found N of M tabs` and explains why some non-matching tabs remain visible (active, pinned, protected by Firefox because they use camera/microphone/screen sharing, or intentionally kept for a quick return).
 - **Return to your starting tab**: If you start a search while on a non-matching tab (for example YouTube), that tab stays visible after you switch to a matching result. You can switch back without clearing the search; the counter marks it as `kept for return`.
+- **New tabs never disappear**: Tabs opened while a filter is active — including `+ New Tab` and links opened in the background — stay visible until the filter is cleared. You never have to clear a search just to find a tab you just created.
 - **Safe restoration**: Each window has its own filter session. Only tabs hidden by that session are shown again; tabs hidden before the search by another extension or by the user are never revealed. Closing and opening tabs, changing URLs/titles, moving tabs and switching the active tab re-evaluate the filter automatically.
 - **Collapsed sidebar support**: In the narrow icon-only launcher, the field becomes a compact search icon. Clicking it expands the sidebar, focuses the field, and keeps the tab strip usable.
 - **Keyboard**: `Esc` clears the query, `Ctrl+A` selects it, and `Ctrl+Alt+F` focuses the native field. The shortcut is configurable in `about:addons` → TabSearch → Manage Extension Shortcuts.
@@ -172,6 +173,7 @@ TabSearch can also live directly in **Firefox's built-in vertical tabs sidebar**
 2. **Safe per-window filter sessions**:
    - Each window tracks only the tabs it hid itself. Pre-existing hidden tabs are never revealed, including tabs hidden by other extensions.
    - Tabs that were active while non-matching remain visible for the rest of the session, so you can return to the page you started from. The counter reports them as kept for return.
+   - Tabs created after the filter starts (foreground or background) stay visible until the filter is cleared, so `+ New Tab` never creates a hidden tab.
    - Reacts to tab creation/removal, navigation, title changes, activation and tab moves through Firefox events; no polling.
    - Rehydrates active sessions from memory-only `storage.session` if the MV3 background page is restarted.
 3. **Privileged browser-chrome integration package**:

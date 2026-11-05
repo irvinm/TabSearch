@@ -139,12 +139,14 @@ const TabSearchNativeFilter = (() => {
    * @param {Array<number>} matchedIds - Tab IDs matching the query.
    * @param {Set<number>|Array<number>} [ownedHidden=new Set()] - Tab IDs hidden by this session.
    * @param {Set<number>|Array<number>} [protectedIds=new Set()] - Non-matching tabs that were active during the session and must stay visible for a quick return.
+   * @param {Set<number>|Array<number>} [newTabIds=new Set()] - Tabs created while the filter is active; they stay visible until the filter is cleared.
    * @returns {{
    *   toHide: number[],
    *   toShow: number[],
    *   blockedActive: number,
    *   blockedPinned: number,
    *   protectedCount: number,
+   *   newTabCount: number,
    *   matchedCount: number,
    *   visibleMatched: number,
    *   hiddenMatched: number,
@@ -155,18 +157,21 @@ const TabSearchNativeFilter = (() => {
     tabs,
     matchedIds,
     ownedHidden = new Set(),
-    protectedIds = new Set()
+    protectedIds = new Set(),
+    newTabIds = new Set()
   ) {
     const safeTabs = Array.isArray(tabs) ? tabs : [];
     const matched = new Set(Array.isArray(matchedIds) ? matchedIds : []);
     const owned = ownedHidden instanceof Set ? ownedHidden : new Set(ownedHidden || []);
     const protectedTabs =
       protectedIds instanceof Set ? protectedIds : new Set(protectedIds || []);
+    const newTabs = newTabIds instanceof Set ? newTabIds : new Set(newTabIds || []);
     const toHide = [];
     const toShow = [];
     let blockedActive = 0;
     let blockedPinned = 0;
     let protectedCount = 0;
+    let newTabCount = 0;
     let matchedCount = 0;
     let visibleMatched = 0;
     let hiddenMatched = 0;
@@ -211,6 +216,13 @@ const TabSearchNativeFilter = (() => {
         protectedCount++;
         continue;
       }
+      if (newTabs.has(tab.id)) {
+        // Tabs created while filtering (including "+ New Tab" and background
+        // links) should not disappear into the hidden set before the user can
+        // use them. They remain visible until the filter is cleared.
+        newTabCount++;
+        continue;
+      }
 
       toHide.push(tab.id);
     }
@@ -221,10 +233,11 @@ const TabSearchNativeFilter = (() => {
       blockedActive,
       blockedPinned,
       protectedCount,
+      newTabCount,
       matchedCount,
       visibleMatched,
       hiddenMatched,
-      keptVisible: blockedActive + blockedPinned + protectedCount,
+      keptVisible: blockedActive + blockedPinned + protectedCount + newTabCount,
     };
   }
 
@@ -242,6 +255,7 @@ const TabSearchNativeFilter = (() => {
       ownedHidden: new Set(),
       exempt: new Set(),
       protectedActive: new Set(),
+      newTabs: new Set(),
       recentlyChanged: new Map(),
       closed: false,
       applying: false,
@@ -273,6 +287,7 @@ const TabSearchNativeFilter = (() => {
         blockedPinned: 0,
         blockedUnsupported: 0,
         protectedCount: 0,
+        newTabCount: 0,
         keptVisible: 0,
         updatedAt: Date.now(),
       };
@@ -547,6 +562,7 @@ const TabSearchNativeFilter = (() => {
           query: session.query,
           owned: Array.from(session.ownedHidden),
           protected: Array.from(session.protectedActive),
+          newTabs: Array.from(session.newTabs),
           updatedAt: Date.now(),
         };
       }
@@ -610,12 +626,18 @@ const TabSearchNativeFilter = (() => {
           session.protectedActive.delete(tabId);
         }
       }
+      for (const tabId of Array.from(session.newTabs)) {
+        if (!tabById.has(tabId)) {
+          session.newTabs.delete(tabId);
+        }
+      }
 
       const plan = buildVisibilityPlan(
         tabs,
         matchedIds,
         session.ownedHidden,
-        session.protectedActive
+        session.protectedActive,
+        session.newTabs
       );
 
       // Never fight a tab that was externally shown during this session.
@@ -692,6 +714,7 @@ const TabSearchNativeFilter = (() => {
         blockedPinned: plan.blockedPinned,
         blockedUnsupported,
         protectedCount: plan.protectedCount,
+        newTabCount: plan.newTabCount,
         keptVisible: plan.keptVisible + blockedUnsupported,
         updatedAt: session.updatedAt,
       };
@@ -826,6 +849,7 @@ const TabSearchNativeFilter = (() => {
         blockedPinned: 0,
         blockedUnsupported: 0,
         protectedCount: 0,
+        newTabCount: 0,
         keptVisible: 0,
         updatedAt: Date.now(),
       };
@@ -851,7 +875,14 @@ const TabSearchNativeFilter = (() => {
      * @returns {void}
      */
     function onTabCreated(tab) {
-      if (!tab || typeof tab.windowId !== 'number') return;
+      if (!tab || typeof tab.windowId !== 'number' || typeof tab.id !== 'number') return;
+      const session = sessions.get(tab.windowId);
+      if (session && !session.closed) {
+        // A tab created while the filter is active should not vanish into the
+        // hidden set before the user can use it. This covers foreground
+        // "+ New Tab" and background links alike.
+        session.newTabs.add(tab.id);
+      }
       scheduleWindow(tab.windowId);
       scheduleInactiveStateRefresh(tab.windowId);
     }
@@ -949,6 +980,8 @@ const TabSearchNativeFilter = (() => {
     function onTabRemoved(tabId, removeInfo) {
       for (const session of sessions.values()) {
         removeOwned(session, tabId);
+        session.newTabs.delete(tabId);
+        session.protectedActive.delete(tabId);
       }
       if (removeInfo && typeof removeInfo.windowId === 'number') {
         scheduleWindow(removeInfo.windowId);
@@ -1062,6 +1095,7 @@ const TabSearchNativeFilter = (() => {
         session.protectedActive = new Set(
           Array.isArray(record.protected) ? record.protected : []
         );
+        session.newTabs = new Set(Array.isArray(record.newTabs) ? record.newTabs : []);
         for (const tabId of session.ownedHidden) {
           ownedByTab.set(tabId, windowId);
         }

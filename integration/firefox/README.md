@@ -135,6 +135,9 @@ and copy `config.js` as `tabsearch-autoconfig.cfg` next to `firefox.exe`.
 - If you start on YouTube, filter for `github`, and then open a GitHub result,
   YouTube stays visible for the rest of the session. Switch back at any time;
   clearing the filter releases the protection.
+- Tabs opened while the filter is active — including `+ New Tab` and links
+  opened in the background — stay visible until the filter is cleared. The
+  counter reports them as `new`.
 - In the collapsed icon-only launcher, a compact search icon remains visible.
   Click it to expand the sidebar and focus the field.
 - `Ctrl+Alt+F` focuses the field from anywhere. The shortcut is configurable in
@@ -219,7 +222,8 @@ integration is removed as well.
   microphone, or screen sharing. They remain visible and the counter explains
   why.
 - Tabs you were on while they did not match the query remain visible until the
-  filter is cleared, so you can switch back to the page you started from. This
+  filter is cleared, so you can switch back to the page you started from. Tabs
+  created during the filter are also kept visible until it is cleared. This
   never force-shows tabs hidden by another extension.
 - The integration uses Firefox's internal `#vertical-tabs` and
   `#tabbrowser-tabs` elements and `SidebarController._state` to expand the

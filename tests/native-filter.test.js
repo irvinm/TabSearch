@@ -371,19 +371,27 @@ test('native filter - visibility plan never hides active/pinned or reveals pre-h
     { id: 6, title: 'Owned hidden non-match', active: false, pinned: false, hidden: true },
     { id: 7, title: 'Owned pinned non-match', active: false, pinned: true, hidden: true },
     { id: 8, title: 'Protected non-match', active: false, pinned: false, hidden: false },
+    { id: 9, title: 'New tab non-match', active: false, pinned: false, hidden: false },
   ];
 
-  const plan = buildVisibilityPlan(tabs, [4, 5], new Set([5, 6, 7]), new Set([8]));
+  const plan = buildVisibilityPlan(
+    tabs,
+    [4, 5],
+    new Set([5, 6, 7]),
+    new Set([8]),
+    new Set([9])
+  );
 
   assert.deepEqual(plan.toHide, [3]);
   assert.deepEqual(plan.toShow.sort((a, b) => a - b), [5, 7]);
   assert.equal(plan.blockedActive, 1);
   assert.equal(plan.blockedPinned, 1);
   assert.equal(plan.protectedCount, 1);
+  assert.equal(plan.newTabCount, 1);
   assert.equal(plan.matchedCount, 2);
   assert.equal(plan.visibleMatched, 0);
   assert.equal(plan.hiddenMatched, 2);
-  assert.equal(plan.keptVisible, 3);
+  assert.equal(plan.keptVisible, 4);
 });
 
 test('native filter - setQuery hides non-matches and reports blocked tabs', async () => {
@@ -456,6 +464,31 @@ test('native filter - keeps a non-matching origin tab visible after switching to
   controller.dispose();
 });
 
+test('native filter - tabs opened after the filter starts stay visible', async () => {
+  const fake = createFakeBrowser();
+  const { controller } = createController(fake);
+  fake.addTab({ windowId: 1, title: 'GitHub', url: 'https://github.com/', active: true });
+
+  await controller.setQuery(1, 'github');
+  const created = fake.addTab({
+    windowId: 1,
+    title: 'New documentation',
+    url: 'https://docs.example/',
+    active: false,
+  });
+  controller.handleTabCreated(created);
+  await controller.flush();
+
+  assert.equal(fake.tabs.find(tab => tab.id === created.id).hidden, false);
+  const state = await controller.getPanelState(1);
+  assert.equal(state.newTabCount, 1);
+
+  await controller.clearWindow(1, { reason: 'test' });
+  assert.equal(fake.tabs.find(tab => tab.id === created.id).hidden, false);
+
+  controller.dispose();
+});
+
 test('native filter - inactive panel counter refreshes when tabs open or close', async () => {
   const fake = createFakeBrowser();
   const { controller, updates } = createController(fake);
@@ -477,21 +510,6 @@ test('native filter - inactive panel counter refreshes when tabs open or close',
 
   const afterRemove = updates[updates.length - 1];
   assert.equal(afterRemove.state.total, 2);
-
-  controller.dispose();
-});
-
-test('native filter - new tabs are filtered automatically', async () => {
-  const fake = createFakeBrowser();
-  const { controller } = createController(fake);
-  fake.addTab({ windowId: 1, title: 'GitHub', url: 'https://github.com/' });
-
-  await controller.setQuery(1, 'github');
-  const created = fake.addTab({ windowId: 1, title: 'Reddit', url: 'https://reddit.com/', active: false });
-  controller.handleTabCreated(created);
-  await controller.flush();
-
-  assert.equal(fake.tabs.find(tab => tab.id === created.id).hidden, true);
 
   controller.dispose();
 });
